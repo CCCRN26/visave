@@ -1,0 +1,1 @@
+import{publicGroup}from'@/modules/public/public.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r,{params}){try{return ok(await publicGroup((await params).id))}catch(e){return fail(e)}}

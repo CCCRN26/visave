@@ -1,0 +1,1 @@
+export default function ComingSoon(){return <div className="panel" style={{padding:40,textAlign:'center'}}><h1>Coming Soon</h1><p className="muted">This financial or operational module is planned for Phase 2. No placeholder transactions are generated.</p></div>}

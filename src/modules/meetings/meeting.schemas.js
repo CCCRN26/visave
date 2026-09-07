@@ -1,0 +1,10 @@
+import{z}from'zod';
+const money=z.string().regex(/^\d+(\.\d{1,2})?$/,'Use a non-negative decimal amount without currency symbols or commas');
+export const openMeetingSchema=z.object({meetingDate:z.string().date()});
+export const attendanceSchema=z.object({updates:z.array(z.object({memberId:z.string().uuid(),status:z.enum(['PRESENT','LATE','ABSENT','EXCUSED']),notes:z.string().max(1000).nullable().optional()})).min(1)});
+export const savingsSchema=z.object({memberId:z.string().uuid(),numberOfShares:z.number().int().positive(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
+export const idempotentMemberSchema=z.object({memberId:z.string().uuid(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
+export const fineSchema=idempotentMemberSchema.extend({fineRuleId:z.string().uuid(),reason:z.string().trim().max(1000).nullable().optional()}).strict();
+export const reversalSchema=z.object({idempotencyKey:z.string().trim().min(8).max(160)}).strict();
+export const reconciliationSchema=z.object({countedSavingsLoanBalance:money,countedSocialFundBalance:money,notes:z.string().trim().max(2000).nullable().optional(),signatureDataUrl:z.string().max(1500000).regex(/^data:image\/png;base64,/,'A PNG signature is required')}).strict();
+export const cancellationSchema=z.object({reason:z.string().trim().min(3).max(2000)}).strict();

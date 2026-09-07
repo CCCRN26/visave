@@ -1,0 +1,1 @@
+export function formatCurrency(value,currency='NGN'){if(value===null||value===undefined||value==='')return'—';const number=Number(value);if(!Number.isFinite(number))return'—';return new Intl.NumberFormat('en-NG',{style:'currency',currency,minimumFractionDigits:2}).format(number)}

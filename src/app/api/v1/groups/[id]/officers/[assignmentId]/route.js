@@ -1,0 +1,2 @@
+import{requireGroupRouteAction,GROUP_ACTION}from'@/modules/group-access/group-access.service';import{requireAuth}from'@/lib/auth/session';import{removeOfficer}from'@/modules/onboarding/onboarding.service';import{ok,fail}from'@/lib/errors/response';
+export async function DELETE(_request,{params}){try{const{id,assignmentId}=await params,user=await requireAuth();await requireGroupRouteAction(user,id,'officer.manage',GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE);return ok(await removeOfficer(id,assignmentId,user))}catch(error){return fail(error)}}

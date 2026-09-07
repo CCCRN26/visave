@@ -1,0 +1,4 @@
+CREATE TABLE states (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(120) NOT NULL, code VARCHAR(20), country_code VARCHAR(2) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(country_code,name));
+CREATE TABLE lgas (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), state_id UUID NOT NULL REFERENCES states(id), name VARCHAR(120) NOT NULL, code VARCHAR(20), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(state_id,name));
+CREATE TABLE communities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), lga_id UUID NOT NULL REFERENCES lgas(id), name VARCHAR(160) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(lga_id,name));
+CREATE INDEX lgas_state_idx ON lgas(state_id); CREATE INDEX communities_lga_idx ON communities(lga_id);

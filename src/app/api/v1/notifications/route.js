@@ -1,0 +1,1 @@
+import{requireAuth}from'@/lib/auth/session';import{requirePermission}from'@/lib/permissions';import{listNotifications}from'@/modules/notifications/notification.service';import{ok,fail}from'@/lib/errors/response';export async function GET(){try{const u=await requireAuth();requirePermission(u,'notification.view');return ok(await listNotifications(u))}catch(e){return fail(e)}}

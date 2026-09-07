@@ -1,0 +1,2 @@
+INSERT INTO organizations(code,name,description,status) VALUES('CCCRN','CCCRN','Centre for Clinical Care and Clinical Research Nigeria','ACTIVE') ON CONFLICT(code) DO UPDATE SET name=excluded.name;
+INSERT INTO projects(organization_id,code,name,description,start_date,status) SELECT id,'VSLA-PILOT','CCCRN VSLA Pilot','Phase 1 demonstration project',CURRENT_DATE,'ACTIVE' FROM organizations WHERE code='CCCRN' ON CONFLICT(organization_id,code) DO NOTHING;

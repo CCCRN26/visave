@@ -1,0 +1,1 @@
+import{parse}from'@/lib/validation/parse';import{publicSearchSchema}from'@/modules/public/public.schemas';import{searchPublicGroups}from'@/modules/public/public.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r){try{return ok(await searchPublicGroups(parse(publicSearchSchema,Object.fromEntries(r.nextUrl.searchParams))))}catch(e){return fail(e)}}

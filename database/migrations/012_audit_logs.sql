@@ -1,0 +1,2 @@
+CREATE TABLE audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID REFERENCES organizations(id), actor_user_id UUID REFERENCES users(id), action VARCHAR(80) NOT NULL, entity_type VARCHAR(80), entity_id UUID, old_values JSONB, new_values JSONB, ip_address INET, user_agent TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX audit_org_created_idx ON audit_logs(organization_id,created_at DESC); CREATE INDEX audit_actor_idx ON audit_logs(actor_user_id); CREATE INDEX audit_entity_idx ON audit_logs(entity_type,entity_id);

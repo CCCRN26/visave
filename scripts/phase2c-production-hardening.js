@@ -1,0 +1,88 @@
+import crypto from "node:crypto";
+import pg from "pg";
+import nextEnv from "@next/env";
+import { databaseUrlFor, requireDisposableDatabaseName } from "./lib/disposable-database.js";
+
+nextEnv.loadEnvConfig(process.cwd());
+const databaseName = requireDisposableDatabaseName(process.env.LOAN_ACCEPTANCE_DB || "cccrn_vsla_acceptance");
+process.env.DATABASE_URL = databaseUrlFor(new URL(process.env.DATABASE_URL), databaseName).toString();
+const { requestLoan, decideLoan, disburseIdempotent, repayIdempotent, reverseLoan } = await import("../src/modules/loans/loan.service.js");
+const { editMember } = await import("../src/modules/onboarding/onboarding.service.js");
+const { readiness } = await import("../src/modules/shareout/shareout.service.js");
+const { pool } = await import("../src/lib/db/pool.js");
+const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const token = crypto.randomUUID().slice(0, 8);
+const results = [];
+const expectCode = async (code, work) => { try { await work(); throw new Error(`Expected ${code}`); } catch (error) { if (error.code !== code) throw error; results.push({ scenario: code, result: "PASS" }); } };
+const actor = (id, roles = ["VSLA_MEMBER"]) => ({ id, organization_id: fixture.organizationId, roles, permissions: [] });
+let fixture;
+
+await client.connect();
+try {
+  await client.query("BEGIN");
+  const organizationId = (await client.query("INSERT INTO organizations(code,name,status) VALUES($1,$2,'ACTIVE') RETURNING id", [`LH-${token}`, `Loan hardening ${token}`])).rows[0].id;
+  const user = async (name) => (await client.query("INSERT INTO users(organization_id,first_name,last_name,email,password_hash,status) VALUES($1,$2,'Tester',$3,'not-used','ACTIVE') RETURNING id", [organizationId, name, `${name.toLowerCase()}-${token}@example.test`])).rows[0].id;
+  const recordKeeperUserId = await user("Recorder");
+  const chairUserId = await user("Chair");
+  const borrowerUserId = await user("Borrower");
+  const adminUserId = await user("Admin");
+  const projectId = (await client.query("INSERT INTO projects(organization_id,code,name,status,created_by) VALUES($1,$2,$3,'ACTIVE',$4) RETURNING id", [organizationId, `P-${token}`, `Project ${token}`, adminUserId])).rows[0].id;
+  const location = (await client.query("SELECT s.id state_id,l.id lga_id FROM states s JOIN lgas l ON l.state_id=s.id ORDER BY s.name,l.name LIMIT 1")).rows[0];
+  const groupId = (await client.query("INSERT INTO vsla_groups(organization_id,project_id,group_code,name,state_id,lga_id,date_formed,meeting_location,group_type,status,created_by,operation_mode) VALUES($1,$2,$3,$4,$5,$6,CURRENT_DATE,'Test venue','SELF_MANAGED','ACTIVE',$7,'MEMBER_MANAGED') RETURNING id", [organizationId, projectId, `G-${token}`, `Group ${token}`, location.state_id, location.lga_id, adminUserId])).rows[0].id;
+  const member = async (number, name, linkedUserId) => (await client.query("INSERT INTO group_members(organization_id,group_id,member_number,member_code,first_name,last_name,date_joined,linked_user_id,status,created_by) VALUES($1,$2,$3,$4,$5,'Tester',CURRENT_DATE,$6,'ACTIVE',$7) RETURNING id", [organizationId, groupId, number, `M-${token}-${number}`, name, linkedUserId, adminUserId])).rows[0].id;
+  const recordKeeperMemberId = await member(1, "Recorder", recordKeeperUserId);
+  const chairMemberId = await member(2, "Chair", chairUserId);
+  const borrowerMemberId = await member(3, "Borrower", borrowerUserId);
+  const otherMemberId = await member(4, "Other", null);
+  const constitutionId = (await client.query("INSERT INTO group_constitutions(organization_id,group_id,version_number,status,share_value,min_shares_per_meeting,max_shares_per_meeting,social_fund_contribution,loan_max_multiple,loan_service_charge_rate,loan_max_term_months,meeting_frequency,approved_at,approved_by,created_by) VALUES($1,$2,1,'APPROVED',1000,1,5,200,3,5,3,'WEEKLY',now(),$3,$3) RETURNING id", [organizationId, groupId, adminUserId])).rows[0].id;
+  const cycleId = (await client.query("INSERT INTO vsla_cycles(organization_id,group_id,constitution_id,cycle_number,start_date,expected_end_date,status,activated_at,created_by) VALUES($1,$2,$3,1,CURRENT_DATE,CURRENT_DATE+INTERVAL '10 months','ACTIVE',now(),$4) RETURNING id", [organizationId, groupId, constitutionId, adminUserId])).rows[0].id;
+  for(const memberId of [recordKeeperMemberId,chairMemberId,borrowerMemberId,otherMemberId])await client.query("INSERT INTO cycle_memberships(organization_id,group_id,cycle_id,member_id,participation_start_date,created_by) VALUES($1,$2,$3,$4,CURRENT_DATE,$5)",[organizationId,groupId,cycleId,memberId,adminUserId]);
+  await client.query("INSERT INTO group_officer_assignments(organization_id,group_id,cycle_id,member_id,position_code,status,appointed_at,created_by) VALUES($1,$2,$3,$4,'RECORD_KEEPER','ACTIVE',CURRENT_DATE,$6),($1,$2,$3,$5,'CHAIRPERSON','ACTIVE',CURRENT_DATE,$6)", [organizationId, groupId, cycleId, recordKeeperMemberId, chairMemberId, adminUserId]);
+  const meetingId = (await client.query("INSERT INTO vsla_meetings(organization_id,group_id,cycle_id,meeting_number,meeting_code,meeting_date,status,opened_by) VALUES($1,$2,$3,1,$4,CURRENT_DATE,'OPEN',$5) RETURNING id", [organizationId, groupId, cycleId, `MTG-${token}`, recordKeeperUserId])).rows[0].id;
+  for (const memberId of [recordKeeperMemberId, chairMemberId, borrowerMemberId, otherMemberId]) await client.query("INSERT INTO meeting_attendance(organization_id,meeting_id,group_id,cycle_id,member_id,attendance_status) VALUES($1,$2,$3,$4,$5,$6)", [organizationId, meetingId, groupId, cycleId, memberId, memberId === borrowerMemberId ? "ABSENT" : "PRESENT"]);
+  const accounts = {};
+  for (const [code, name, category, side] of [["SAVINGS_LOAN_CASH","Cash","ASSET","DEBIT"],["MEMBER_SAVINGS_CONTROL","Savings","EQUITY","CREDIT"],["LOANS_RECEIVABLE","Loans","ASSET","DEBIT"],["LOAN_SERVICE_CHARGE_INCOME","Charges","INCOME","CREDIT"]]) accounts[code] = (await client.query("INSERT INTO ledger_accounts(organization_id,group_id,cycle_id,account_code,account_name,account_category,normal_side,fund_type) VALUES($1,$2,$3,$4,$5,$6,$7,'SAVINGS_LOAN') ON CONFLICT(cycle_id,account_code) DO UPDATE SET account_name=ledger_accounts.account_name RETURNING id", [organizationId, groupId, cycleId, code, name, category, side])).rows[0].id;
+  const fundingTransactionId = (await client.query("INSERT INTO financial_transactions(organization_id,group_id,cycle_id,meeting_id,member_id,transaction_type,reference_code,effective_date,idempotency_key,request_fingerprint,created_by) VALUES($1,$2,$3,$4,$5,'SAVINGS_PURCHASE',$6,CURRENT_DATE,$7,$8,$9) RETURNING id", [organizationId, groupId, cycleId, meetingId, borrowerMemberId, `FUND-${token}`, `fund-${token}`, token.padEnd(64, "0"), recordKeeperUserId])).rows[0].id;
+  await client.query("INSERT INTO ledger_entries(financial_transaction_id,ledger_account_id,entry_side,amount) VALUES($1,$2,'DEBIT',50000),($1,$3,'CREDIT',50000)", [fundingTransactionId, accounts.SAVINGS_LOAN_CASH, accounts.MEMBER_SAVINGS_CONTROL]);
+  await client.query("INSERT INTO savings_transactions(financial_transaction_id,organization_id,group_id,cycle_id,meeting_id,member_id,transaction_kind,shares,share_value,amount,created_by) VALUES($1,$2,$3,$4,$5,$6,'PURCHASE',50,1000,50000,$7)", [fundingTransactionId, organizationId, groupId, cycleId, meetingId, borrowerMemberId, recordKeeperUserId]);
+  const otherFundingId = (await client.query("INSERT INTO financial_transactions(organization_id,group_id,cycle_id,meeting_id,member_id,transaction_type,reference_code,effective_date,idempotency_key,request_fingerprint,created_by) VALUES($1,$2,$3,$4,$5,'SAVINGS_PURCHASE',$6,CURRENT_DATE,$7,$8,$9) RETURNING id", [organizationId, groupId, cycleId, meetingId, otherMemberId, `FUND2-${token}`, `fund2-${token}`, `2${token}`.padEnd(64, "0"), recordKeeperUserId])).rows[0].id;
+  await client.query("INSERT INTO ledger_entries(financial_transaction_id,ledger_account_id,entry_side,amount) VALUES($1,$2,'DEBIT',10000),($1,$3,'CREDIT',10000)", [otherFundingId, accounts.SAVINGS_LOAN_CASH, accounts.MEMBER_SAVINGS_CONTROL]);
+  await client.query("INSERT INTO savings_transactions(financial_transaction_id,organization_id,group_id,cycle_id,meeting_id,member_id,transaction_kind,shares,share_value,amount,created_by) VALUES($1,$2,$3,$4,$5,$6,'PURCHASE',10,1000,10000,$7)", [otherFundingId, organizationId, groupId, cycleId, meetingId, otherMemberId, recordKeeperUserId]);
+  await client.query("COMMIT");
+  fixture = { organizationId, groupId, cycleId, meetingId, borrowerMemberId, otherMemberId, recordKeeperUserId, chairUserId, adminUserId };
+
+  const rk = actor(recordKeeperUserId);
+  const chair = actor(chairUserId);
+  await expectCode("BORROWER_NOT_PRESENT", () => requestLoan(groupId, meetingId, { memberId: borrowerMemberId, requestedPrincipal: "10000.00", requestedTermMonths: 2, purpose: "Trading stock" }, rk));
+  await client.query("UPDATE meeting_attendance SET attendance_status='PRESENT' WHERE meeting_id=$1 AND member_id=$2", [meetingId, borrowerMemberId]);
+  const request = await requestLoan(groupId, meetingId, { memberId: borrowerMemberId, requestedPrincipal: "10000.00", requestedTermMonths: 2, purpose: "Trading stock" }, rk);
+  results.push({ scenario: "PRESENT eligible request", result: "PASS" });
+  await expectCode("LOAN_REQUEST_ALREADY_OPEN", () => requestLoan(groupId, meetingId, { memberId: borrowerMemberId, requestedPrincipal: "1000.00", requestedTermMonths: 1, purpose: "School costs" }, rk));
+  const concurrent = await Promise.allSettled([1, 2].map((attempt) => requestLoan(groupId, meetingId, { memberId: otherMemberId, requestedPrincipal: "1000.00", requestedTermMonths: 1, purpose: `Concurrent request ${attempt}` }, rk)));
+  if (concurrent.filter((result) => result.status === "fulfilled").length !== 1 || concurrent.filter((result) => result.status === "rejected" && result.reason.code === "LOAN_REQUEST_ALREADY_OPEN").length !== 1) throw new Error("Concurrent duplicate request guard failed");
+  results.push({ scenario: "Concurrent unresolved request uniqueness", result: "PASS" });
+  await expectCode("FORBIDDEN", () => decideLoan(groupId, meetingId, request.id, { approvedPrincipal: "9000.00", approvedTermMonths: 2 }, rk, "APPROVED"));
+  const decision = await decideLoan(groupId, meetingId, request.id, { approvedPrincipal: "9000.00", approvedTermMonths: 3, notes: "Negotiated lower principal" }, chair, "APPROVED");
+  if (decision.approved_principal !== "9000.00" || decision.approved_term_months !== 3) throw new Error("Negotiated approval was not preserved");
+  results.push({ scenario: "Chair negotiated approval", result: "PASS" });
+  await expectCode("FORBIDDEN", () => disburseIdempotent(groupId, meetingId, request.id, { idempotencyKey: `chair-${token}` }, chair));
+  const disbursement = await disburseIdempotent(groupId, meetingId, request.id, { idempotencyKey: `disburse-${token}` }, rk);
+  if (disbursement.loan.service_charge_total_due !== "1350.00") throw new Error("Flat service-charge formula changed");
+  results.push({ scenario: "Separated disbursement and unchanged flat charge", result: "PASS" });
+  const first = await repayIdempotent(groupId, meetingId, disbursement.loan.id, { paymentAmount: "1000.00", idempotencyKey: `pay1-${token}` }, chair);
+  const second = await repayIdempotent(groupId, meetingId, disbursement.loan.id, { paymentAmount: "1000.00", idempotencyKey: `pay2-${token}` }, chair);
+  await expectCode("LOAN_REPAYMENT_REVERSAL_ORDER_INVALID", () => reverseLoan(groupId, meetingId, disbursement.loan.id, first.transaction.id, { idempotencyKey: `reverse1-${token}` }, rk));
+  await reverseLoan(groupId, meetingId, disbursement.loan.id, second.transaction.id, { idempotencyKey: `reverse2-${token}` }, rk);
+  results.push({ scenario: "Newest-first repayment reversal", result: "PASS" });
+  await expectCode("MEMBER_HAS_UNRESOLVED_LOAN_OBLIGATION", () => editMember(groupId, borrowerMemberId, { status: "INACTIVE" }, actor(adminUserId, ["SUPER_ADMIN"])));
+  const shareout = await readiness(groupId, cycleId, meetingId);
+  if (!shareout.blockingIssues.includes("OUTSTANDING_LOANS") || !shareout.blockingIssues.includes("UNRESOLVED_LOAN_REQUESTS")) throw new Error("Loan share-out guards were weakened");
+  results.push({ scenario: "Outstanding debt and unresolved request block share-out", result: "PASS" });
+  console.log(JSON.stringify({ database: databaseName, results }, null, 2));
+} catch (error) {
+  await client.query("ROLLBACK").catch(() => {});
+  throw error;
+} finally {
+  await client.end();
+  await pool.end();
+}

@@ -1,0 +1,5 @@
+import { query } from "@/lib/db/query"; import { AuthorizationError } from "@/lib/errors"; import {checkGroupAccess} from "./group-scope.js"; export {requirePermission} from "./check.js"; export {checkGroupAccess} from "./group-scope.js";
+export async function canAccessProject(user,projectId){const r=await query(`SELECT EXISTS(SELECT 1 FROM projects p WHERE p.id=$2 AND p.organization_id=$1 AND ('SUPER_ADMIN'=ANY($3::text[]) OR EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$4 AND (r.code='SUPER_ADMIN' OR ur.project_id=p.id)))) allowed`,[user.organization_id,projectId,user.roles,user.id]);return r[0]?.allowed;}
+export async function requireProjectAccess(user,id){if(!await canAccessProject(user,id))throw new AuthorizationError();}
+export async function requireStateAccess(user,stateId){if(user.roles.includes('SUPER_ADMIN'))return;const r=await query(`SELECT 1 FROM user_roles WHERE user_id=$1 AND state_id=$2 LIMIT 1`,[user.id,stateId]);if(!r.length)throw new AuthorizationError();}
+export async function requireGroupAccess(user,groupId){return checkGroupAccess(query,user,groupId);}

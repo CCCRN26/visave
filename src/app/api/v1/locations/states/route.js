@@ -1,0 +1,1 @@
+import{requireAuth}from"@/lib/auth/session";import{query}from"@/lib/db/query";import{ok,fail}from"@/lib/errors/response";export async function GET(){try{await requireAuth();return ok(await query("SELECT id,name,code,country_code FROM states ORDER BY name"))}catch(e){return fail(e)}}

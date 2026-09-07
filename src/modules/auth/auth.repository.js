@@ -1,0 +1,2 @@
+export async function findByEmail(client,email){return (await client.query(`SELECT id,organization_id,first_name,last_name,email,phone,password_hash,status FROM users WHERE lower(email)=$1 LIMIT 1`,[email])).rows[0];}
+export async function createSession(client,{userId,tokenHash,expiresAt,ip,userAgent}){return (await client.query(`INSERT INTO user_sessions(user_id,token_hash,expires_at,ip_address,user_agent) VALUES($1,$2,$3,$4,$5) RETURNING id`,[userId,tokenHash,expiresAt,ip,userAgent])).rows[0];}

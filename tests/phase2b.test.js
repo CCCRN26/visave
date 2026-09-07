@@ -1,0 +1,27 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { openMeetingSchema, attendanceSchema, savingsSchema, idempotentMemberSchema, fineSchema, reconciliationSchema, cancellationSchema } from "../src/modules/meetings/meeting.schemas.js";
+import { formatCurrency } from "../src/lib/utils/money.js";
+import { isCalendarDateWithin } from "../src/lib/utils/calendar-date.js";
+const uuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+test("meeting input requires a real calendar date", () => { assert.equal(openMeetingSchema.safeParse({ meetingDate: "2026-08-20" }).success, true); assert.equal(openMeetingSchema.safeParse({ meetingDate: "20/08/2026" }).success, false); });
+test("cycle meeting boundaries are inclusive calendar dates", () => {
+  const start = "2026-07-01", end = "2026-08-05";
+  assert.equal(isCalendarDateWithin("2026-06-30", start, end), false);
+  assert.equal(isCalendarDateWithin("2026-07-01", start, end), true);
+  assert.equal(isCalendarDateWithin("2026-08-04", start, end), true);
+  assert.equal(isCalendarDateWithin("2026-08-05", start, end), true);
+  assert.equal(isCalendarDateWithin("2026-08-06", start, end), false);
+});
+test("attendance accepts only marked statuses", () => { assert.equal(attendanceSchema.safeParse({ updates: [{ memberId: uuid, status: "PRESENT" }] }).success, true); assert.equal(attendanceSchema.safeParse({ updates: [{ memberId: uuid, status: "UNMARKED" }] }).success, false); });
+test("savings rejects zero, negative, fractional, and client amount", () => { for (const n of [0, -1, 1.5]) assert.equal(savingsSchema.safeParse({ memberId: uuid, numberOfShares: n, idempotencyKey: "abcdefgh" }).success, false); assert.equal(savingsSchema.safeParse({ memberId: uuid, numberOfShares: 3, amount: "1.00", idempotencyKey: "abcdefgh" }).success, false); });
+test("social request contains no client amount", () => { assert.equal(idempotentMemberSchema.safeParse({ memberId: uuid, idempotencyKey: "abcdefgh" }).success, true); assert.equal(idempotentMemberSchema.safeParse({ memberId: uuid, amount: "200", idempotencyKey: "abcdefgh" }).success, false); });
+test("fine requires UUID rule and idempotency key", () => assert.equal(fineSchema.safeParse({ memberId: uuid, fineRuleId: uuid, idempotencyKey: "abcdefgh" }).success, true));
+test("reconciliation requires a PNG signature and unformatted money", () => { const signatureDataUrl = "data:image/png;base64,AAAA"; assert.equal(reconciliationSchema.safeParse({ countedSavingsLoanBalance: "45000.50", countedSocialFundBalance: "3200", signatureDataUrl }).success, true); assert.equal(reconciliationSchema.safeParse({ countedSavingsLoanBalance: "1", countedSocialFundBalance: "0" }).success, false); for (const v of ["-1", "45,000", "₦200", "hello"]) assert.equal(reconciliationSchema.safeParse({ countedSavingsLoanBalance: v, countedSocialFundBalance: "0", signatureDataUrl }).success, false); });
+test("cancellation requires meaningful reason", () => assert.equal(cancellationSchema.safeParse({ reason: "  " }).success, false));
+test("currency formatting is presentation only", () => assert.match(formatCurrency("1000.00"), /1,000\.00/));
+test("migration contains required database defenses", () => { const sql = fs.readFileSync(new URL("../database/migrations/016_phase_2b_meetings_ledger.sql", import.meta.url), "utf8"); for (const value of ["one_open_meeting_per_cycle", "one_reversal_per_transaction", "UNIQUE(organization_id,idempotency_key)", "DEFERRABLE INITIALLY DEFERRED", "reject_financial_mutation", "UNIQUE(meeting_id,member_id)"]) assert.ok(sql.includes(value)); });
+test("header guard rejects transactions without balanced entries", () => assert.match(fs.readFileSync(new URL("../database/migrations/018_phase_2b_header_balance_guard.sql", import.meta.url), "utf8"), /debits<>credits OR debits=0/));
+test("database serializes and rejects duplicate active social contributions", () => { const sql = fs.readFileSync(new URL("../database/migrations/019_phase_2b_social_fund_uniqueness.sql", import.meta.url), "utf8"); assert.match(sql, /pg_advisory_xact_lock/); assert.match(sql, /reversal_of_transaction_id=original.id/); assert.match(sql, /one_active_social_contribution_per_member_meeting/); });
+test("database serializes and rejects duplicate active savings purchases", () => { const sql = fs.readFileSync(new URL("../database/migrations/034_operational_integrity_documents.sql", import.meta.url), "utf8"); assert.match(sql, /pg_advisory_xact_lock/); assert.match(sql, /one_active_savings_purchase_per_member_meeting/); });

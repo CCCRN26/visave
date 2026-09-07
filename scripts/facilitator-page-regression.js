@@ -1,0 +1,8 @@
+import fs from "node:fs";
+import pg from "pg";
+for (const line of fs.readFileSync(".env", "utf8").split(/\r?\n/)) { const match = line.match(/^([^#][^=]*)=(.*)$/); if (match && !process.env[match[1].trim()]) process.env[match[1].trim()] = match[2].trim().replace(/^"|"$/g, ""); }
+const login = await fetch("http://localhost:3000/api/v1/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }) }); if (!login.ok) throw new Error(`Login failed: ${login.status}`); const cookie = login.headers.get("set-cookie").split(";", 1)[0];
+const db = new pg.Client({ connectionString: process.env.DATABASE_URL }); await db.connect(); const fixture = (await db.query(`SELECT fp.id facilitator_id,g.id group_id FROM facilitator_profiles fp JOIN users u ON u.id=fp.user_id LEFT JOIN vsla_groups g ON g.facilitator_user_id=u.id WHERE u.email='amina.facilitator@example.org' LIMIT 1`)).rows[0]; await db.end(); if (!fixture) throw new Error("Seeded facilitator fixture missing");
+const paths = ["/facilitators", "/facilitators/new", `/facilitators/${fixture.facilitator_id}`, `/facilitators/${fixture.facilitator_id}/edit`, `/groups/${fixture.group_id}`], results = [];
+for (const path of paths) { const response = await fetch(`http://localhost:3000${path}`, { headers: { cookie } }), html = await response.text(), invalid = ["Invalid Date", "[object Date]", "NaN", ">undefined<"].filter((value) => html.includes(value)); if (response.status !== 200 || invalid.length) throw new Error(`${path}: status=${response.status}, invalid=${invalid}`); results.push({ path, status: 200, invalid: [] }); }
+console.log(JSON.stringify(results, null, 2));

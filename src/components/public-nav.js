@@ -1,0 +1,5 @@
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import {useState} from "react";
+export default function PublicNav(){const[open,setOpen]=useState(false);return <header className="public-header"><div className="public-nav-shell"><Link className="public-brand" href="/" aria-label="Visave home"><Image className="public-brand-logo" src="/cccrn-logo.png" alt="CCCRN logo" width={190} height={148}/><span><strong>Visave</strong></span></Link><button className="public-menu-toggle" type="button" aria-expanded={open} aria-controls="public-menu" onClick={()=>setOpen(value=>!value)}><span className="sr-only">Toggle navigation</span><span/><span/></button><nav id="public-menu" className={`public-menu ${open?"is-open":""}`} aria-label="Public navigation"><Link href="/">Home</Link><Link href="/about">About Us</Link><Link href="/#solutions">Solutions</Link><Link href="/join-a-group">Join a Group</Link><Link href="/contact">Contact Us</Link><Link href="/login">Login</Link><Link className="public-nav-cta" href="/find-a-group">Find a Group</Link></nav></div></header>}

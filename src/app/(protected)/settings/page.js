@@ -1,0 +1,1 @@
+export default function Settings(){return <><h1>Settings</h1><div className="panel" style={{padding:24}}><h2>Appearance</h2><p className="muted">The interface follows the selected light or dark browser theme.</p></div></>}

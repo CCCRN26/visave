@@ -1,0 +1,2 @@
+import{requireGroupRouteAction,GROUP_ACTION}from'@/modules/group-access/group-access.service';
+import{requireAuth}from'@/lib/auth/session';import{requirePermission}from'@/lib/permissions';import{getShareout}from'@/modules/shareout/shareout.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r,{params}){try{const{id,cycleId}=await params,u=await requireAuth();await requireGroupRouteAction(u,id,'shareout.view',GROUP_ACTION.SHAREOUT_VIEW);return ok(await getShareout(id,cycleId))}catch(e){return fail(e)}}

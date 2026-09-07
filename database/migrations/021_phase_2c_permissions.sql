@@ -1,0 +1,2 @@
+INSERT INTO permissions(code) SELECT unnest(ARRAY['loan.view','loan.request','loan.approve','loan.disburse','loan.repay','loan.default','loan.reverse']) ON CONFLICT(code) DO NOTHING;
+INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code IN('SUPER_ADMIN','PROJECT_ADMIN','STATE_COORDINATOR','FACILITATOR') AND p.code IN('loan.view','loan.request','loan.approve','loan.disburse','loan.repay','loan.default','loan.reverse') ON CONFLICT DO NOTHING;

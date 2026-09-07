@@ -1,0 +1,1 @@
+import{publicLocations}from'@/modules/public/public.service';import{ok,fail}from'@/lib/errors/response';export async function GET(){try{return ok(await publicLocations('states'))}catch(e){return fail(e)}}

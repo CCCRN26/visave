@@ -1,0 +1,2 @@
+import{requireGroupRouteAction,GROUP_ACTION}from'@/modules/group-access/group-access.service';
+import{requireAuth}from'@/lib/auth/session';import{requirePermission}from'@/lib/permissions';import{getTransactions}from'@/modules/meetings/meeting.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r,{params}){try{const{id,meetingId}=await params,u=await requireAuth();await requireGroupRouteAction(u,id,'savings.view',GROUP_ACTION.FINANCIAL_VIEW);return ok(await getTransactions(id,meetingId))}catch(e){return fail(e)}}

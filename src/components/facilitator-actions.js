@@ -1,0 +1,4 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+export default function FacilitatorActions({ facilitator, canActivate, canDeactivate }) { const router = useRouter(), [message, setMessage] = useState(""); async function post(action) { setMessage(""); const response = await fetch(`/api/v1/facilitators/${facilitator.id}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }), json = await response.json(); if (!response.ok) { setMessage(json.error?.message || "Action failed"); return; } router.refresh(); } return <div>{facilitator.status !== "ACTIVE" && canActivate && <button onClick={() => post("activate")}>Activate</button>} {facilitator.status === "ACTIVE" && canDeactivate && <button onClick={() => post("deactivate")}>Deactivate</button>}{message && <p style={{ color: "#c33" }}>{message}</p>}</div>; }

@@ -1,0 +1,2 @@
+import{requireGroupRouteAction,GROUP_ACTION}from'@/modules/group-access/group-access.service';
+import{requireAuth}from'@/lib/auth/session';import{requirePermission}from'@/lib/permissions';import{getStatus}from'@/modules/onboarding/onboarding.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r,{params}){try{const{id}=await params,u=await requireAuth();await requireGroupRouteAction(u,id,'group.view',GROUP_ACTION.GROUP_VIEW);return ok(await getStatus(id,u))}catch(e){return fail(e)}}

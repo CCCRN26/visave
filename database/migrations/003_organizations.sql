@@ -1,0 +1,1 @@
+CREATE TABLE organizations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(160) NOT NULL, description TEXT, status VARCHAR(20) NOT NULL CHECK(status IN ('ACTIVE','INACTIVE')), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());

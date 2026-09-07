@@ -1,0 +1,2 @@
+CREATE TABLE notifications(id UUID PRIMARY KEY DEFAULT gen_random_uuid(),organization_id UUID NOT NULL REFERENCES organizations(id),recipient_user_id UUID NOT NULL REFERENCES users(id),type VARCHAR(50) NOT NULL,title VARCHAR(160) NOT NULL,message VARCHAR(500) NOT NULL,entity_type VARCHAR(60),entity_id UUID,is_read BOOLEAN NOT NULL DEFAULT false,read_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX notifications_recipient_unread_idx ON notifications(recipient_user_id,is_read,created_at DESC);

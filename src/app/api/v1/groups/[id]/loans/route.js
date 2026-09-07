@@ -1,0 +1,2 @@
+import{requireGroupRouteAction,GROUP_ACTION}from'@/modules/group-access/group-access.service';
+import{requireAuth}from'@/lib/auth/session';import{requirePermission}from'@/lib/permissions';import{listLoans}from'@/modules/loans/loan.service';import{ok,fail}from'@/lib/errors/response';export async function GET(r,{params}){try{const{id}=await params,u=await requireAuth();await requireGroupRouteAction(u,id,'loan.view',GROUP_ACTION.LOAN_VIEW);return ok(await listLoans(id))}catch(e){return fail(e)}}

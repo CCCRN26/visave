@@ -1,0 +1,1 @@
+import{publicLocations}from'@/modules/public/public.service';import{ok,fail}from'@/lib/errors/response';import{ValidationError}from'@/lib/errors';export async function GET(r){try{const stateId=r.nextUrl.searchParams.get('stateId');if(!stateId)throw new ValidationError('stateId is required.');return ok(await publicLocations('lgas',stateId))}catch(e){return fail(e)}}
