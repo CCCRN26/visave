@@ -33,9 +33,18 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: contentSecurityPolicy,
   },
+  ...(!isDevelopment
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=31536000",
+        },
+      ]
+    : []),
 ];
 
 const nextConfig = {
+  poweredByHeader: false,
   async headers() {
     return [
       {
