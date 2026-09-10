@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { phoneInputProps, sanitizePhoneInput } from "@/lib/validation/phone";
 export default function FacilitatorForm({
   projects,
   states,
@@ -108,7 +109,7 @@ export default function FacilitatorForm({
         </label>
         <label>
           Phone Number
-          <input value={form.phone || ""} onChange={set("phone")} />
+          <input {...phoneInputProps} value={form.phone || ""} onChange={(event) => setForm((value) => ({ ...value, phone: sanitizePhoneInput(event.target.value) }))} />
         </label>
         <label>
           Facilitator Code

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { phoneInputProps, sanitizePhoneInput } from "@/lib/validation/phone";
 
 const ERROR_MESSAGES = {
   USER_EMAIL_ALREADY_EXISTS: "An account with this email already exists.",
@@ -140,7 +141,7 @@ export default function MemberDigitalAccess({ groupId, member, officerLabel, can
             <label>First Name<input name="firstName" required maxLength="100" defaultValue={member.first_name} autoComplete="given-name" /></label>
             <label>Last Name<input name="lastName" required maxLength="100" defaultValue={member.last_name} autoComplete="family-name" /></label>
             <label>Email<input name="email" required type="email" autoComplete="email" /></label>
-            <label>Phone<input name="phone" maxLength="30" defaultValue={member.phone || ""} autoComplete="tel" /></label>
+            <label>Phone<input name="phone" {...phoneInputProps} defaultValue={member.phone || ""} autoComplete="tel" onInput={(event) => { event.currentTarget.value = sanitizePhoneInput(event.currentTarget.value); }} /></label>
             <label>
               Temporary Password
               <span className="password-field">

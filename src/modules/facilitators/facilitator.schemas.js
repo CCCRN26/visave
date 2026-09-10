@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { optionalPhoneSchema } from "@/lib/validation/phone";
 
 const optionalUuid = z.string().uuid().nullable().optional();
-const phone = z.string().trim().min(7).max(30).regex(/^[+0-9() -]+$/).optional();
 
 export const facilitatorListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -17,7 +17,7 @@ export const createFacilitatorSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
   email: z.string().trim().toLowerCase().email(),
-  phone,
+  phone: optionalPhoneSchema,
   staffCode: z.string().trim().min(2).max(40).transform((value) => value.toUpperCase()),
   password: z.string().min(12).max(128),
   projectId: z.string().uuid(),
@@ -30,7 +30,7 @@ export const updateFacilitatorSchema = z.object({
   firstName: z.string().trim().min(1).max(100).optional(),
   lastName: z.string().trim().min(1).max(100).optional(),
   email: z.string().trim().toLowerCase().email().optional(),
-  phone,
+  phone: optionalPhoneSchema,
   staffCode: z.string().trim().min(2).max(40).transform((value) => value.toUpperCase()).optional(),
   projectId: z.string().uuid().optional(),
   stateId: z.string().uuid().optional(),
