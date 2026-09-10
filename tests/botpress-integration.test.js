@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const component = read("src/components/botpress-chat.js");
+const launcherStyles = read("src/components/botpress-chat.module.css");
 const layout = read("src/app/layout.js");
 const config = read("next.config.mjs");
 
@@ -19,6 +20,24 @@ test("root layout mounts one Botpress component for all routes", () => {
   assert.match(layout, /<body>\{children\}<BotpressChat\/><\/body>/);
   assert.match(component, /strategy="lazyOnload"/);
   assert.match(component, /onLoad=\{\(\) => setInjectReady\(true\)\}/);
+});
+
+test("custom Visave AI launcher uses Botpress custom-element auto-binding", () => {
+  assert.equal((component.match(/id="bp-toggle-chat"/g) || []).length, 1);
+  assert.match(component, /<button\s+[\s\S]*?id="bp-toggle-chat"[\s\S]*?type="button"/);
+  assert.match(component, /aria-label="Open Visave AI chat"/);
+  assert.match(component, /<span>Visave AI<\/span>/);
+  assert.doesNotMatch(component, /onClick|window\.botpress|\.toggle\(|\.open\(/);
+});
+
+test("custom launcher stays fixed, responsive, and visibly keyboard focusable", () => {
+  assert.match(launcherStyles, /position:\s*fixed/);
+  assert.match(launcherStyles, /right:\s*max\(1\.25rem, env\(safe-area-inset-right\)\)/);
+  assert.match(launcherStyles, /bottom:\s*max\(1\.25rem, env\(safe-area-inset-bottom\)\)/);
+  assert.match(launcherStyles, /min-height:\s*52px/);
+  assert.match(launcherStyles, /max-width:\s*calc\(100vw - 2rem\)/);
+  assert.match(launcherStyles, /\.launcher:focus-visible/);
+  assert.match(launcherStyles, /@media \(max-width: 480px\)/);
 });
 
 test("CSP narrowly permits required Botpress runtime origins", () => {
