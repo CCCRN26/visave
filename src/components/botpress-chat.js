@@ -16,7 +16,7 @@ export default function BotpressChat() {
         id="bp-toggle-chat"
         type="button"
         className={styles.launcher}
-        aria-label="Open Visave AI chat"
+        aria-label="Open AskVi chat"
       >
         <svg
           className={styles.icon}
@@ -27,7 +27,7 @@ export default function BotpressChat() {
           <path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 8.7 8.7 0 0 1-3.28-.86L4 20l1.66-4.15A7.5 7.5 0 1 1 20 11.5Z" />
           <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
         </svg>
-        <span>Visave AI</span>
+        <span>AskVi</span>
       </button>
       <Script
         id="visave-botpress-inject"

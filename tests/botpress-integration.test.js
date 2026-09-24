@@ -22,11 +22,11 @@ test("root layout mounts one Botpress component for all routes", () => {
   assert.match(component, /onLoad=\{\(\) => setInjectReady\(true\)\}/);
 });
 
-test("custom Visave AI launcher uses Botpress custom-element auto-binding", () => {
+test("custom AskVi launcher uses Botpress custom-element auto-binding", () => {
   assert.equal((component.match(/id="bp-toggle-chat"/g) || []).length, 1);
   assert.match(component, /<button\s+[\s\S]*?id="bp-toggle-chat"[\s\S]*?type="button"/);
-  assert.match(component, /aria-label="Open Visave AI chat"/);
-  assert.match(component, /<span>Visave AI<\/span>/);
+  assert.match(component, /aria-label="Open AskVi chat"/);
+  assert.match(component, /<span>AskVi<\/span>/);
   assert.doesNotMatch(component, /onClick|window\.botpress|\.toggle\(|\.open\(/);
 });
 
