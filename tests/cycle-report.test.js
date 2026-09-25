@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
 import { assembleCycleReport, canAccessCycleReports } from "@/modules/reports/cycle-report.service";
 import { buildCycleReportExcel, cycleReportFilename } from "@/modules/reports/cycle-report-excel";
+import { buildCycleReportPdf } from "@/modules/reports/cycle-report-pdf";
 
 const user = { id: "user-1", organization_id: "org-1", first_name: "Report", last_name: "Admin", email: "report@example.org", roles: ["PROJECT_ADMIN"], permissions: ["report.view"] };
 const participant = (id, code, name, start = "2026-01-01") => ({ member_id: id, member_code: code, member_name: name, member_number: Number(code.slice(-1)), member_status: "ACTIVE", participation_start_date: start, participation_end_date: null });
@@ -122,11 +123,16 @@ test("report authorization permits scoped reporting actors and denies ordinary m
 
 test("Excel contains all canonical sheets and agrees with the web report summary", async () => {
   const report = build();
+  const pdf = await buildCycleReportPdf(report);
+  assert.equal(pdf.subarray(0, 4).toString(), "%PDF");
   const buffer = await buildCycleReportExcel(report);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   assert.deepEqual(workbook.worksheets.map((sheet) => sheet.name), ["Cycle Summary", "Meeting Summary", "Attendance Register", "Savings Ledger", "Social Fund Ledger", "Fines Ledger", "Loan Summary", "Loan Transactions", "Cashbook", "Share-out", "Cycle Closure"]);
   const sheet = workbook.getWorksheet("Cycle Summary");
+  assert.ok(workbook.worksheets.every((worksheet) => worksheet.getImages().length === 1));
+  assert.equal(sheet.getImages()[0].range.tl.row, 0);
+  assert.equal(sheet.views[0].ySplit, 8);
   let exportedSavings;
   sheet.eachRow((row) => { if (row.getCell(1).value === "Net Savings") exportedSavings = row.getCell(2).value; });
   assert.equal(exportedSavings, Number(report.cycleSummary.netSavings));

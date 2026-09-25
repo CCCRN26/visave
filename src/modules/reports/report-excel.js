@@ -15,15 +15,15 @@ export function createReportWorkbook(generatedAt) {
   return workbook;
 }
 
-export function addHeading(sheet, lines, width) {
+export function addHeading(sheet, lines, width, startRow = 1) {
   const lastColumn = Math.max(2, width);
   lines.forEach((line, index) => {
-    const rowNumber = index + 1;
+    const rowNumber = startRow + index;
     sheet.mergeCells(rowNumber, 1, rowNumber, lastColumn);
     sheet.getCell(rowNumber, 1).value = line;
   });
-  sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: "FF143D38" } };
-  sheet.getRow(3).font = { italic: true, color: { argb: "FF5E6F69" } };
+  sheet.getCell(startRow, 1).font = { bold: true, size: 16, color: { argb: "FF143D38" } };
+  sheet.getRow(startRow + 2).font = { italic: true, color: { argb: "FF5E6F69" } };
 }
 
 export function writeTable(sheet, columns, data, options = {}) {

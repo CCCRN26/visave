@@ -135,7 +135,7 @@ try {
   await historicalWorkbook.xlsx.load(await buildCycleReportExcel(report1));
   const currentWorkbook = new ExcelJS.Workbook();
   await currentWorkbook.xlsx.load(await buildCycleReportExcel(report2));
-  const workbookMembers = (workbook) => workbook.getWorksheet("Attendance Register").getRows(6, workbook.getWorksheet("Attendance Register").rowCount - 5).map((row) => row.getCell(2).value);
+  const workbookMembers = (workbook) => workbook.getWorksheet("Attendance Register").getRows(9, workbook.getWorksheet("Attendance Register").rowCount - 8).map((row) => row.getCell(2).value);
   assert.deepEqual(workbookMembers(historicalWorkbook), ["Amina Member", "Musa Member", "Grace Member"]);
   assert.deepEqual(workbookMembers(currentWorkbook), ["Amina Member", "Musa Member", "John Member", "Samuel Member"]);
   assert.deepEqual(meetingReport1.attendance.rows.map((row) => row.memberName), ["Amina Member", "Musa Member", "Grace Member"]);

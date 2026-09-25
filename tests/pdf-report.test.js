@@ -15,3 +15,10 @@ test("PDF renderers expose the approved canonical detail sections", () => {
   ["Loan Requests", "Loan Disbursements", "Loan Repayments", "requestedAmount", "principalComponent", "serviceChargeComponent"].forEach(value => assert.match(meeting, new RegExp(value)));
   ["Loan Transactions", "transactionType", "principalComponent", "serviceChargeComponent", "Share-out"].forEach(value => assert.match(member, new RegExp(value)));
 });
+test("Cycle Report PDF places local Visave and CCCRN branding on opposite sides", () => {
+  const cycle = fs.readFileSync("src/modules/reports/cycle-report-pdf.js", "utf8");
+  assert.match(cycle, /leftLogo:\s*"visave-logo\.png"/);
+  assert.match(cycle, /rightLogo:\s*\{\s*filename:\s*"cccrn-logo\.png"/);
+  assert.match(cycle, /leftLogoPosition:\s*\{\s*x:\s*42/);
+  assert.match(cycle, /rightLogo:\s*\{\s*filename:\s*"cccrn-logo\.png",\s*x:\s*515/);
+});

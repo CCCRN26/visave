@@ -7,12 +7,26 @@ const naira = (value) => `NGN ${Number(value || 0).toLocaleString("en-NG", { min
 const text = (value, fallback = "Not available") => value === null || value === undefined || value === "" ? fallback : String(value);
 const date = (value) => value ? String(value).slice(0, 10) : "Not available";
 
-export function createPdf(report, title) {
+function addLogo(doc, filename, x, y, fit) {
+  const logo = path.join(process.cwd(), "public", filename);
+  if (!fs.existsSync(logo)) return false;
+  try {
+    doc.image(logo, x, y, { fit });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function createPdf(report, title, branding = {}) {
   const doc = new PDFDocument({ size: "A4", margin: 42, bufferPages: true, info: { Title: `Visave ${title}`, Author: "Visave" } });
   const chunks = []; doc.on("data", (chunk) => chunks.push(chunk));
-  const logo = path.join(process.cwd(), "public", "cccrn-logo.png");
-  if (fs.existsSync(logo)) doc.image(logo, 42, 35, { fit: [48, 42] });
-  doc.fillColor("#143d38").fontSize(18).text("Visave", 98, 39).fontSize(12).text(title, 98, 62);
+  const leftLogo = branding.leftLogo || "cccrn-logo.png";
+  const leftLogoPosition = branding.leftLogoPosition || { x: 42, y: 35, fit: [48, 42] };
+  addLogo(doc, leftLogo, leftLogoPosition.x, leftLogoPosition.y, leftLogoPosition.fit);
+  if (branding.rightLogo) addLogo(doc, branding.rightLogo.filename, branding.rightLogo.x, branding.rightLogo.y, branding.rightLogo.fit);
+  const headingX = branding.headingX || 98;
+  doc.fillColor("#143d38").fontSize(18).text("Visave", headingX, 39).fontSize(12).text(title, headingX, 62);
   doc.fillColor("#333333").fontSize(8).text(`${report.metadata.groupName} · ${report.metadata.groupCode} · Cycle ${report.metadata.cycleNumber}`, 42, 91);
   doc.text(`Generated ${report.metadata.generatedAt} by ${report.metadata.generatedBy?.name || report.metadata.generatedBy?.email || "Authorized user"}`, 42, 103);
   doc.moveTo(42, 118).lineTo(553, 118).strokeColor("#c8d5d0").stroke(); doc.y = 132;
