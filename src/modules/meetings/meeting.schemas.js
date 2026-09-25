@@ -1,6 +1,19 @@
 import{z}from'zod';
+import{normalizeGoogleMeetUrl}from'./meeting-url';
 const money=z.string().regex(/^\d+(\.\d{1,2})?$/,'Use a non-negative decimal amount without currency symbols or commas');
-export const openMeetingSchema=z.object({meetingDate:z.string().date()});
+export const openMeetingSchema=z.object({
+  meetingDate:z.string().date(),
+  meetingMode:z.enum(['PHYSICAL','VIRTUAL','HYBRID']).default('PHYSICAL'),
+  virtualMeetingUrl:z.string().nullable().optional(),
+}).strict().transform((data,ctx)=>{
+  if(data.meetingMode==='PHYSICAL')return{...data,virtualMeetingUrl:null};
+  const virtualMeetingUrl=normalizeGoogleMeetUrl(data.virtualMeetingUrl);
+  if(!virtualMeetingUrl){
+    ctx.addIssue({code:'custom',path:['virtualMeetingUrl'],message:'Enter a valid HTTPS Google Meet link from meet.google.com'});
+    return z.NEVER;
+  }
+  return{...data,virtualMeetingUrl};
+});
 export const attendanceSchema=z.object({updates:z.array(z.object({memberId:z.string().uuid(),status:z.enum(['PRESENT','LATE','ABSENT','EXCUSED']),notes:z.string().max(1000).nullable().optional()})).min(1)});
 export const savingsSchema=z.object({memberId:z.string().uuid(),numberOfShares:z.number().int().positive(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
 export const idempotentMemberSchema=z.object({memberId:z.string().uuid(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
