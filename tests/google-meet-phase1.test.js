@@ -12,6 +12,7 @@ test("legacy and explicit physical meetings remain physical without a Meet URL",
   assert.deepEqual(openMeetingSchema.parse({ meetingDate }), {
     meetingDate,
     meetingMode: "PHYSICAL",
+    meetSetup: "MANUAL",
     virtualMeetingUrl: null,
   });
   assert.deepEqual(
@@ -20,7 +21,7 @@ test("legacy and explicit physical meetings remain physical without a Meet URL",
       meetingMode: "PHYSICAL",
       virtualMeetingUrl: "https://example.com/stale",
     }),
-    { meetingDate, meetingMode: "PHYSICAL", virtualMeetingUrl: null },
+    { meetingDate, meetingMode: "PHYSICAL", meetSetup: "MANUAL", virtualMeetingUrl: null },
   );
 
   const migration = read("../database/migrations/050_virtual_meeting_metadata.sql");
