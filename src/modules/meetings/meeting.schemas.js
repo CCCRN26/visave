@@ -4,9 +4,11 @@ const money=z.string().regex(/^\d+(\.\d{1,2})?$/,'Use a non-negative decimal amo
 export const openMeetingSchema=z.object({
   meetingDate:z.string().date(),
   meetingMode:z.enum(['PHYSICAL','VIRTUAL','HYBRID']).default('PHYSICAL'),
+  meetSetup:z.enum(['MANUAL','AUTOMATIC']).default('MANUAL'),
   virtualMeetingUrl:z.string().nullable().optional(),
 }).strict().transform((data,ctx)=>{
-  if(data.meetingMode==='PHYSICAL')return{...data,virtualMeetingUrl:null};
+  if(data.meetingMode==='PHYSICAL')return{...data,meetSetup:'MANUAL',virtualMeetingUrl:null};
+  if(data.meetSetup==='AUTOMATIC')return{...data,virtualMeetingUrl:null};
   const virtualMeetingUrl=normalizeGoogleMeetUrl(data.virtualMeetingUrl);
   if(!virtualMeetingUrl){
     ctx.addIssue({code:'custom',path:['virtualMeetingUrl'],message:'Enter a valid HTTPS Google Meet link from meet.google.com'});
@@ -14,6 +16,7 @@ export const openMeetingSchema=z.object({
   }
   return{...data,virtualMeetingUrl};
 });
+export const manualGoogleMeetSchema=z.object({virtualMeetingUrl:z.string().trim().min(1)}).strict();
 export const attendanceSchema=z.object({updates:z.array(z.object({memberId:z.string().uuid(),status:z.enum(['PRESENT','LATE','ABSENT','EXCUSED']),notes:z.string().max(1000).nullable().optional()})).min(1)});
 export const savingsSchema=z.object({memberId:z.string().uuid(),numberOfShares:z.number().int().positive(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
 export const idempotentMemberSchema=z.object({memberId:z.string().uuid(),idempotencyKey:z.string().trim().min(8).max(160)}).strict();
