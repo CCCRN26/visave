@@ -94,3 +94,29 @@ test("program-scoped admins manage digital access while members and officers do 
   assert.equal(canGroupAction(member, officer("RECORD_KEEPER", "MEMBER_MANAGED"), GROUP_ACTION.DIGITAL_ACCESS_MANAGE), false);
   assert.equal(canGroupAction(member, officer(null), GROUP_ACTION.DIGITAL_ACCESS_MANAGE), false);
 });
+
+test("Box Keeper and Money Counters gain no operational actions from digital access", () => {
+  const operationalActions = [
+    GROUP_ACTION.MEETING_OPERATE, GROUP_ACTION.ATTENDANCE_OPERATE, GROUP_ACTION.FINANCIAL_OPERATE,
+    GROUP_ACTION.FINANCIAL_REVERSE, GROUP_ACTION.LOAN_REQUEST, GROUP_ACTION.LOAN_DECIDE,
+    GROUP_ACTION.LOAN_DISBURSE, GROUP_ACTION.LOAN_REPAY, GROUP_ACTION.RECONCILIATION_OPERATE,
+    GROUP_ACTION.CYCLE_MANAGE, GROUP_ACTION.CYCLE_CLOSE, GROUP_ACTION.OFFICER_MANAGE,
+    GROUP_ACTION.SHAREOUT_OPERATE, GROUP_ACTION.REPORT_VIEW,
+  ];
+  for (const position of ["BOX_KEEPER", "MONEY_COUNTER_1", "MONEY_COUNTER_2"]) {
+    const context = officer(position, "MEMBER_MANAGED");
+    for (const action of operationalActions) assert.equal(canGroupAction(member, context, action), false, `${position}: ${action}`);
+  }
+});
+
+test("officer assignment authority remains mode-specific", () => {
+  const programChair = officer("CHAIRPERSON", "PROGRAM_ASSISTED");
+  const memberManagedChair = officer("CHAIRPERSON", "MEMBER_MANAGED");
+  const assignedFacilitator = officer(null, "PROGRAM_ASSISTED", { linked_member_id: null, is_assigned_facilitator: true,
+    is_active_facilitator: true, has_facilitator_scope: true });
+  assert.equal(canGroupAction(member, programChair, GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE), true);
+  assert.equal(canGroupAction(member, memberManagedChair, GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE), true);
+  assert.equal(canGroupAction(facilitator, assignedFacilitator, GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE), true);
+  assert.equal(canGroupAction(facilitator, { ...assignedFacilitator, operation_mode: "MEMBER_MANAGED" }, GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE), false);
+  assert.equal(canGroupAction(member, officer(null), GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE), false);
+});
