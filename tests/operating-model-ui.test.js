@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { OFFICER_POSITIONS } from "../src/modules/onboarding/constants.js";
 
 const component=fs.readFileSync("src/components/operating-model-panel.js","utf8");
 const page=fs.readFileSync("src/app/(protected)/groups/[id]/page.js","utf8");
@@ -42,7 +43,9 @@ test("Public Discovery reuses PATCH public-settings with every supported enum",(
 
 test("Group Overview exposes leadership access as member-profile shortcuts",()=>{
   assert.match(page,/Leadership access/);
-  assert.match(page,/CHAIRPERSON/);
-  assert.match(page,/RECORD_KEEPER/);
+  assert.deepEqual(OFFICER_POSITIONS,["CHAIRPERSON","RECORD_KEEPER","BOX_KEEPER","MONEY_COUNTER_1","MONEY_COUNTER_2"]);
+  assert.match(page,/OFFICER_POSITIONS\.map/);
+  assert.match(page,/POSITION_LABELS\[leader\.position_code\]/);
+  assert.match(page,/Not assigned/);
   assert.match(page,/members\/\$\{leader\.member_id\}/);
 });
