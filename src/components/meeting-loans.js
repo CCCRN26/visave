@@ -26,10 +26,20 @@ export default function MeetingLoans({ groupId, meetingId, meetingDate, availabl
 
   async function call(path, body) {
     setBusy(true); setMessage("");
-    const response = await fetch(`/api/v1/groups/${groupId}/meetings/${meetingId}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json();
-    setBusy(false); setMessage(response.ok ? "Saved successfully" : result.error?.message || "Action failed");
-    if (response.ok) location.reload();
+    try {
+      const response = await fetch(`/api/v1/groups/${groupId}/meetings/${meetingId}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setMessage(result?.error?.message || "The loan action could not be completed. Please try again.");
+        return;
+      }
+      setMessage("Saved successfully");
+      location.reload();
+    } catch {
+      setMessage("The loan action could not be completed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const estimate = useMemo(() => {
