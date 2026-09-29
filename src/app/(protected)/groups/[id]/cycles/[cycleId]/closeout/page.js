@@ -19,7 +19,7 @@ export default async function CycleCloseoutPage({ params }) {
   const state = await getCloseoutWorkspace(id, cycleId);
   state.recommendedNextStart = nextCalendarDate(state.cycle.expected_end_date);
   const capabilities = {
-    finishMeeting: canGroupAction(user, actor, GROUP_ACTION.MEETING_OPERATE),
+    finishMeeting: canGroupAction(user, actor, GROUP_ACTION.MEETING_CLOSE),
     prepare: canGroupAction(user, actor, GROUP_ACTION.SHAREOUT_PREPARE), approve: canGroupAction(user, actor, GROUP_ACTION.SHAREOUT_APPROVE),
     payout: canGroupAction(user, actor, GROUP_ACTION.SHAREOUT_PAYOUT), complete: canGroupAction(user, actor, GROUP_ACTION.SHAREOUT_COMPLETE),
     operate: canGroupAction(user, actor, GROUP_ACTION.SHAREOUT_OPERATE), refreshReconciliation: canGroupAction(user, actor, GROUP_ACTION.RECONCILIATION_OPERATE),
