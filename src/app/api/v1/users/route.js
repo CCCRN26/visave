@@ -33,8 +33,8 @@ export async function POST(request) {
     const value = await withTransaction(async (client) => {
       await assertRoleAssignment(client, actor, data);
       const hash = await bcrypt.hash(data.password, 12);
-      const created = (await client.query(`INSERT INTO users(organization_id,first_name,last_name,email,phone,password_hash,status,created_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,first_name,last_name,email,phone,status`,
+      const created = (await client.query(`INSERT INTO users(organization_id,first_name,last_name,email,phone,password_hash,status,must_change_password,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,true,$8) RETURNING id,first_name,last_name,email,phone,status`,
       [actor.organization_id, data.firstName, data.lastName, data.email, data.phone || null, hash, data.status, actor.id])).rows[0];
       await client.query(`INSERT INTO user_roles(user_id,role_id,project_id,state_id,created_by)
         SELECT $1,id,$2,$3,$4 FROM roles WHERE code=$5`, [created.id, data.projectId || null, data.stateId || null, actor.id, data.roleCode]);
