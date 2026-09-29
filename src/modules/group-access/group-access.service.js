@@ -8,7 +8,7 @@ export const GROUP_ACTION=Object.freeze({
   OFFICER_VIEW:'OFFICER_VIEW',OFFICER_MANAGE:'OFFICER_MANAGE',
   CONSTITUTION_VIEW:'CONSTITUTION_VIEW',CONSTITUTION_MANAGE:'CONSTITUTION_MANAGE',
   CYCLE_VIEW:'CYCLE_VIEW',CYCLE_MANAGE:'CYCLE_MANAGE',CYCLE_CLOSE:'CYCLE_CLOSE',
-  MEETING_VIEW:'MEETING_VIEW',MEETING_OPERATE:'MEETING_OPERATE',
+  MEETING_VIEW:'MEETING_VIEW',MEETING_OPERATE:'MEETING_OPERATE',MEETING_CLOSE:'MEETING_CLOSE',
   ATTENDANCE_VIEW:'ATTENDANCE_VIEW',ATTENDANCE_OPERATE:'ATTENDANCE_OPERATE',
   FINANCIAL_VIEW:'FINANCIAL_VIEW',FINANCIAL_OPERATE:'FINANCIAL_OPERATE',FINANCIAL_REVERSE:'FINANCIAL_REVERSE',
   LOAN_VIEW:'LOAN_VIEW',LOAN_REQUEST:'LOAN_REQUEST',LOAN_DECIDE:'LOAN_DECIDE',LOAN_DISBURSE:'LOAN_DISBURSE',LOAN_OPERATE:'LOAN_OPERATE',LOAN_REPAY:'LOAN_REPAY',
@@ -26,6 +26,12 @@ const SHAREOUT_ACTIONS=new Set([GROUP_ACTION.SHAREOUT_PREPARE,GROUP_ACTION.SHARE
 const PROGRAM_ASSISTED_FACILITATOR_ACTIONS=new Set([...VIEW_ACTIONS,GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE,GROUP_ACTION.GROUP_MANAGE,GROUP_ACTION.MEMBER_MANAGE,GROUP_ACTION.OFFICER_MANAGE,GROUP_ACTION.CONSTITUTION_MANAGE,GROUP_ACTION.CYCLE_MANAGE,GROUP_ACTION.CYCLE_CLOSE,GROUP_ACTION.MEETING_OPERATE,GROUP_ACTION.ATTENDANCE_OPERATE,GROUP_ACTION.FINANCIAL_OPERATE,GROUP_ACTION.FINANCIAL_REVERSE,GROUP_ACTION.LOAN_REQUEST,GROUP_ACTION.LOAN_DISBURSE,GROUP_ACTION.LOAN_OPERATE,GROUP_ACTION.LOAN_REPAY,GROUP_ACTION.RECONCILIATION_OPERATE,...SHAREOUT_ACTIONS,GROUP_ACTION.DIGITAL_ACCESS_MANAGE]);
 
 export function canGroupAction(user,ctx,action){
+  if(action===GROUP_ACTION.MEETING_CLOSE){
+    if(ctx.operation_mode!=='PROGRAM_ASSISTED')return canGroupAction(user,ctx,GROUP_ACTION.MEETING_OPERATE);
+    if(user.roles?.includes('SUPER_ADMIN'))return true;
+    if(user.roles?.includes('FACILITATOR')&&ctx.is_assigned_facilitator&&ctx.is_active_facilitator&&ctx.has_facilitator_scope)return true;
+    return Boolean(repo.isCurrentDigitalOfficer(ctx)&&ctx.isChairperson);
+  }
   if(ctx.operation_mode==='MEMBER_MANAGED'&&repo.isCurrentDigitalOfficer(ctx)){
     if(ctx.isChairperson&&['ACTIVE','CLOSING'].includes(ctx.cycle_status)&&SHAREOUT_ACTIONS.has(action))return true;
     if(ctx.isChairperson&&ctx.cycle_status==='CLOSING'&&action===GROUP_ACTION.CYCLE_CLOSE)return true;
@@ -75,6 +81,12 @@ export async function requireGroupRouteAction(user,groupId,permission,action=GRO
 
 export async function assertGroupFinancialOperator(user,groupId,client=pool){return assertGroupAction(user,groupId,GROUP_ACTION.FINANCIAL_OPERATE,client)}
 export async function assertGroupMeetingOperator(user,groupId,client=pool){return assertGroupAction(user,groupId,GROUP_ACTION.MEETING_OPERATE,client)}
+export async function assertMeetingClose(user,groupId,client=pool){
+  const ctx=await getGroupActorContext(user,groupId,client);
+  if(!canGroupAction(user,ctx,GROUP_ACTION.MEETING_CLOSE))throw new AuthorizationError('GROUP_ACTION_DENIED');
+  if(ctx.operation_mode!=='PROGRAM_ASSISTED'&&!repo.isCurrentDigitalOfficer(ctx))requirePermission(user,'meeting.manage');
+  return ctx;
+}
 export async function canViewGroup(user,groupId,client=pool){return assertGroupAction(user,groupId,GROUP_ACTION.GROUP_VIEW,client)}
 export async function getGroupCapabilities(user,groupId,client=pool){const ctx=await getGroupActorContext(user,groupId,client);return{ctx,capabilities:Object.fromEntries(Object.entries(GROUP_ACTION).filter(([key])=>key!=='VIEW').map(([key,action])=>[key,canGroupAction(user,ctx,action)]))}}
 export async function getMyGroups(user,client=pool){return repo.linkedGroups(client,user)}

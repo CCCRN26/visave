@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils/money";
 import SignaturePad from "@/components/signature-pad";
-export default function MeetingMode({ groupId, initial, capabilities = {} }) {
+export default function MeetingMode({ groupId, initial, capabilities = {}, children }) {
   const [data, setData] = useState(initial),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -177,17 +177,6 @@ export default function MeetingMode({ groupId, initial, capabilities = {} }) {
         {canReconcile && <Reconcile busy={busy} balances={data.summary} call={call} />}
       </section>
       <section className="panel" style={{ padding: 20, marginTop: 18 }}>
-        <h2>6. Close Meeting</h2>
-        <p className="muted">
-          Requires all attendance marked and a current balanced reconciliation.
-        </p>
-        {canClose && (
-          <button disabled={busy} onClick={() => call("/close", {})}>
-            Close meeting
-          </button>
-        )}
-      </section>
-      <section className="panel" style={{ padding: 20, marginTop: 18 }}>
         <h2>Transaction History</h2>
         <div className="meeting-progress" aria-label="Meeting contribution progress"><div><span>Present members</span><strong>{counts.PRESENT + counts.LATE}</strong></div><div><span>Savings recorded</span><strong>{memberHistory.filter((row) => row.savings && !row.savings.reversed).length}</strong></div><div><span>Social Fund recorded</span><strong>{memberHistory.filter((row) => row.social && !row.social.reversed).length}</strong></div><div><span>Completed</span><strong>{memberHistory.filter((row) => row.complete).length}</strong></div></div>
         <div className="table-wrap">
@@ -219,6 +208,18 @@ export default function MeetingMode({ groupId, initial, capabilities = {} }) {
             </tbody>
           </table>
         </div>
+      </section>
+      {children}
+      <section className="panel" style={{ padding: 20, marginTop: 18 }}>
+        <h2>6. Close Meeting</h2>
+        <p className="muted">
+          Requires all attendance marked and a current balanced signed reconciliation.
+        </p>
+        {canClose && (
+          <button disabled={busy} onClick={() => call("/close", {})}>
+            Close meeting
+          </button>
+        )}
       </section>
     </div>
   );

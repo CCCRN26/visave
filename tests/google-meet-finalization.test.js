@@ -80,6 +80,13 @@ function closeHarness(meetingMode, googleMeetSpaceName) {
   };
   const client = {
     async query(sql) {
+      if (sql.includes("FROM vsla_groups g")) return { rows: [{
+        group_id: "group-1", organization_id: "org-1", operation_mode: "PROGRAM_ASSISTED",
+        linked_member_id: "member-1", member_status: "ACTIVE", active_cycle_id: "cycle-1",
+        cycle_membership_id: "membership-1", cycle_status: "ACTIVE", officer_position: "CHAIRPERSON",
+        has_program_scope: false, is_assigned_facilitator: false, is_active_facilitator: false,
+        has_facilitator_scope: false,
+      }] };
       if (sql.includes("SELECT cy.id FROM vsla_cycles")) return { rows: [{ id: "cycle-1" }] };
       if (sql.includes("FROM vsla_cycles cy JOIN vsla_meetings")) return { rows: [{ ...meeting, group_status: "ACTIVE", cycle_status: "ACTIVE" }] };
       if (sql.includes("attendance_status='UNMARKED'")) return { rows: [{ n: 0 }] };
