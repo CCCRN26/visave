@@ -12,6 +12,12 @@ import {
 import * as repo from "./loan.repository";
 import { assertGroupAction, GROUP_ACTION } from "@/modules/group-access/group-access.service";
 import { requireEffectiveCycleMembership } from "@/modules/cycle-participation/cycle-participation.service";
+import {
+  assertLoanDecisionSeparation,
+  assertLoanDisbursementSeparation,
+  assertSelfRequesterOwnsRequest,
+  resolveLoanRequestMemberId,
+} from "./loan.authorization";
 const ref = (p) =>
   `${p}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 const domain = (code, message, status = 409, details) =>
@@ -135,12 +141,13 @@ export async function getEligibility(groupId, meetingId, memberId) {
 }
 export async function requestLoan(groupId, meetingId, data, user) {
   return withTransaction(async (c) => {
-    await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_REQUEST, c);
+    const actor = await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_REQUEST, c);
+    const memberId = resolveLoanRequestMemberId(user, actor, data.memberId);
     const ctx = await meeting(c, groupId, meetingId),
-      e = await eligible(c, ctx, data.memberId);
-    await noOutstanding(c, ctx.cycle_id, data.memberId);
-    await noOpenRequest(c, ctx.cycle_id, data.memberId);
-    await assertPresent(c, ctx.id, data.memberId);
+      e = await eligible(c, ctx, memberId);
+    await noOutstanding(c, ctx.cycle_id, memberId);
+    await noOpenRequest(c, ctx.cycle_id, memberId);
+    await assertPresent(c, ctx.id, memberId);
     assertCompleteTerms(e);
     if (data.requestedTermMonths > e.loan_max_term_months)
       throw new ValidationError("Requested term exceeds constitution maximum");
@@ -163,7 +170,7 @@ export async function requestLoan(groupId, meetingId, data, user) {
           ctx.organization_id,
           ctx.group_id,
           ctx.cycle_id,
-          data.memberId,
+          memberId,
           ctx.id,
           ref("LRQ"),
           data.requestedPrincipal,
@@ -203,7 +210,7 @@ export async function decideLoan(
   decision,
 ) {
   return withTransaction(async (c) => {
-    await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_DECIDE, c);
+    const actor = await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_DECIDE, c);
     const ctx = await meeting(c, groupId, meetingId),
       r = (
         await c.query(
@@ -215,12 +222,7 @@ export async function decideLoan(
     assertSameCycle(ctx, r, "Loan request");
     if (r.status !== "PENDING")
       throw new ConflictError("Loan request is not pending");
-    if (r.requested_by === user.id)
-      throw domain(
-        "LOAN_SEPARATION_OF_DUTIES_VIOLATION",
-        "The request recorder cannot approve or reject this request",
-        403,
-      );
+    assertLoanDecisionSeparation(user, actor, r.requested_by);
     const e = await eligible(c, ctx, r.member_id);
     let principal = null,
       term = null;
@@ -287,7 +289,7 @@ export async function decideLoan(
 }
 export async function cancelRequest(groupId, meetingId, requestId, data, user) {
   return withTransaction(async (c) => {
-    await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_REQUEST, c);
+    const actor = await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_REQUEST, c);
     const ctx = await meeting(c, groupId, meetingId),
       existing = (
         await c.query(
@@ -297,6 +299,7 @@ export async function cancelRequest(groupId, meetingId, requestId, data, user) {
       ).rows[0];
     if (!existing) throw new NotFoundError("Loan request not found");
     assertSameCycle(ctx, existing, "Loan request");
+    assertSelfRequesterOwnsRequest(user, actor, existing);
     const r = (
         await c.query(
           `UPDATE loan_requests SET status='CANCELLED',cancelled_by=$3,cancelled_at=now(),cancellation_reason=$4,updated_at=now() WHERE id=$1 AND group_id=$2 AND status='PENDING' RETURNING *`,
@@ -317,7 +320,7 @@ export async function cancelRequest(groupId, meetingId, requestId, data, user) {
 }
 export async function disburse(groupId, meetingId, requestId, data, user) {
   return withTransaction(async (c) => {
-    await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_DISBURSE, c);
+    const actor = await assertGroupAction(user, groupId, GROUP_ACTION.LOAN_DISBURSE, c);
     const ctx = await meeting(c, groupId, meetingId),
       r = (
         await c.query(
@@ -328,12 +331,7 @@ export async function disburse(groupId, meetingId, requestId, data, user) {
     if (!r || r.status !== "APPROVED")
       throw new ConflictError("Loan request is not approved");
     assertSameCycle(ctx, r, "Loan request");
-    if (r.decided_by === user.id)
-      throw domain(
-        "LOAN_SEPARATION_OF_DUTIES_VIOLATION",
-        "The loan approver cannot record its disbursement",
-        403,
-      );
+    assertLoanDisbursementSeparation(user, actor, r.decided_by);
     const e = await eligible(c, ctx, r.member_id);
     assertCompleteTerms(e);
     await noOutstanding(c, ctx.cycle_id, r.member_id);

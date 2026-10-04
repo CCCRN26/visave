@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const component = fs.readFileSync("src/components/meeting-loans.js", "utf8");
 const service = fs.readFileSync("src/modules/loans/loan.service.js", "utf8");
+const authorization = fs.readFileSync("src/modules/loans/loan.authorization.js", "utf8");
 const approveRoute = fs.readFileSync(
   "src/app/api/v1/groups/[id]/meetings/[meetingId]/loan-requests/[requestId]/approve/route.js",
   "utf8",
@@ -25,7 +26,7 @@ test("decision routes preserve Chairperson authorization and service enforcement
     assert.match(route, /requireGroupRouteAction\(u,id,'loan\.approve',GROUP_ACTION\.LOAN_DECIDE\)/);
   }
   assert.match(service, /assertGroupAction\(user, groupId, GROUP_ACTION\.LOAN_DECIDE, c\)/);
-  assert.match(service, /LOAN_SEPARATION_OF_DUTIES_VIOLATION/);
+  assert.match(`${service}\n${authorization}`, /LOAN_SEPARATION_OF_DUTIES_VIOLATION/);
 });
 
 test("approve and reject pass the correct transition to the loan service", () => {

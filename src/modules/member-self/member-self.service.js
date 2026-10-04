@@ -4,9 +4,9 @@ import { AuthorizationError } from "../../lib/errors/index.js";
 async function resolveMembership(client, groupId, user, cycleId = null) {
   const cycleFilter=cycleId?'AND cy.id=$4':'';
   const membership = (await client.query(
-    `SELECT g.name group_name,g.status group_status,
+    `SELECT g.name group_name,g.status group_status,g.operation_mode,
        COALESCE(NULLIF(TRIM(g.community_name),''),c.name) community_name,
-       l.name lga_name,s.name state_name,cy.id cycle_id,cy.cycle_number,
+       l.name lga_name,s.name state_name,cy.id cycle_id,cy.cycle_number,cy.status cycle_status,
        m.id member_id,m.member_code,m.status member_status,
        CONCAT_WS(' ',m.first_name,m.middle_name,m.last_name) member_name,
        oa.position_code officer_position,(SELECT json_agg(json_build_object('id',hc.id,'cycle_number',hc.cycle_number,'status',hc.status) ORDER BY hc.cycle_number DESC) FROM cycle_memberships hcm JOIN vsla_cycles hc ON hc.id=hcm.cycle_id WHERE hcm.group_id=g.id AND hcm.member_id=m.id) cycle_history
@@ -47,7 +47,7 @@ function publicMembership(membership) {
 export async function getMyGroupActivity(groupId, user, client = pool, cycleId = null) {
   const membership = await resolveMembership(client, groupId, user,cycleId);
   const params = [groupId, membership.cycle_id, membership.member_id];
-  const [summaryResult, loanResult, shareoutResult, activityResult] = await Promise.all([
+  const [summaryResult, loanResult, shareoutResult, activityResult, openMeetingResult] = await Promise.all([
     client.query(
       `SELECT
          COALESCE((SELECT SUM(CASE transaction_kind WHEN 'PURCHASE' THEN shares ELSE -shares END) FROM savings_transactions WHERE group_id=$1 AND cycle_id=$2 AND member_id=$3),0)::bigint savings_shares,
@@ -128,10 +128,19 @@ export async function getMyGroupActivity(groupId, user, client = pool, cycleId =
        ) activity ORDER BY activity_date DESC LIMIT 50`,
       params,
     ),
+    client.query(
+      `SELECT vm.id meeting_id,vm.meeting_date,ma.attendance_status
+       FROM vsla_meetings vm
+       LEFT JOIN meeting_attendance ma ON ma.meeting_id=vm.id AND ma.member_id=$3
+       WHERE vm.group_id=$1 AND vm.cycle_id=$2 AND vm.status='OPEN'
+       ORDER BY vm.meeting_number DESC LIMIT 1`,
+      params,
+    ),
   ]);
   const summary = summaryResult.rows[0];
   const loan = loanResult.rows[0] || null;
   const shareout = shareoutResult.rows[0] || null;
+  const openMeeting = openMeetingResult.rows[0] || null;
   return {
     membership: publicMembership(membership),
     summary: {
@@ -163,6 +172,13 @@ export async function getMyGroupActivity(groupId, user, client = pool, cycleId =
       entitlement: shareout.final_entitlement,
       amountPaid: shareout.amount_paid,
     } : null,
+    loanRequest: ["PROGRAM_ASSISTED", "MEMBER_MANAGED"].includes(membership.operation_mode) &&
+      membership.group_status === "ACTIVE" && membership.cycle_status === "ACTIVE" &&
+      openMeeting ? {
+        meetingId: openMeeting.meeting_id,
+        meetingDate: openMeeting.meeting_date,
+        attendanceStatus: openMeeting.attendance_status || null,
+      } : null,
     cycles:membership.cycle_history||[{id:membership.cycle_id,cycle_number:membership.cycle_number,status:'ACTIVE'}],
     activity: activityResult.rows.map((entry) => ({
       date: entry.activity_date,

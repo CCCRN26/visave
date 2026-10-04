@@ -5,7 +5,7 @@ import { canGroupAction, getMyGroups, GROUP_ACTION } from "../src/modules/group-
 const member = { id: "user-1", organization_id: "org-1", roles: ["VSLA_MEMBER"], permissions: [] };
 const facilitator = { ...member, roles: ["FACILITATOR"] };
 const officer = (position, mode = "PROGRAM_ASSISTED", overrides = {}) => ({
-  operation_mode: mode, linked_member_id: "member-1", member_status: "ACTIVE", active_cycle_id: "cycle-1",
+  operation_mode: mode, linked_member_id: "member-1", member_status: "ACTIVE", active_cycle_id: "cycle-1", cycle_membership_id: "membership-1",
   cycle_status: "ACTIVE", officer_position: position, isChairperson: position === "CHAIRPERSON",
   isRecordKeeper: position === "RECORD_KEEPER", has_program_scope: false, is_assigned_facilitator: false,
   is_active_facilitator: false, has_facilitator_scope: false, ...overrides,
@@ -19,8 +19,8 @@ test("Chairperson has own-group views and approved operations", () => {
     GROUP_ACTION.RECONCILIATION_OPERATE, GROUP_ACTION.MEETING_OPERATE]) assert.equal(canGroupAction(member, ctx, action), true, action);
   assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_OPERATE), false);
   assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_DECIDE), true);
-  assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_REQUEST), false);
-  assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_DISBURSE), false);
+  assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_REQUEST), true);
+  assert.equal(canGroupAction(member, ctx, GROUP_ACTION.LOAN_DISBURSE), true);
   assert.equal(canGroupAction(member, ctx, GROUP_ACTION.SHAREOUT_OPERATE), false);
 });
 
@@ -69,7 +69,7 @@ test("Facilitator PA mutations pass while MM is read-only", () => {
   assert.equal(canGroupAction(facilitator, base, GROUP_ACTION.FINANCIAL_OPERATE), true);
   assert.equal(canGroupAction(facilitator, base, GROUP_ACTION.LOAN_REQUEST), true);
   assert.equal(canGroupAction(facilitator, base, GROUP_ACTION.LOAN_DISBURSE), true);
-  assert.equal(canGroupAction(facilitator, base, GROUP_ACTION.LOAN_DECIDE), false);
+  assert.equal(canGroupAction(facilitator, base, GROUP_ACTION.LOAN_DECIDE), true);
   assert.equal(canGroupAction(facilitator, { ...base, operation_mode: "MEMBER_MANAGED" }, GROUP_ACTION.FINANCIAL_OPERATE), false);
   assert.equal(canGroupAction(facilitator, { ...base, operation_mode: "MEMBER_MANAGED" }, GROUP_ACTION.FINANCIAL_VIEW), true);
   assert.equal(canGroupAction(facilitator, { ...base, operation_mode: "MEMBER_MANAGED" }, GROUP_ACTION.DIGITAL_ACCESS_MANAGE), true);

@@ -25,6 +25,69 @@ const RECORD_KEEPER_OPERATIONS=new Set([GROUP_ACTION.MEETING_OPERATE,GROUP_ACTIO
 const SHAREOUT_ACTIONS=new Set([GROUP_ACTION.SHAREOUT_PREPARE,GROUP_ACTION.SHAREOUT_APPROVE,GROUP_ACTION.SHAREOUT_PAYOUT,GROUP_ACTION.SHAREOUT_COMPLETE,GROUP_ACTION.SHAREOUT_OPERATE]);
 const PROGRAM_ASSISTED_FACILITATOR_ACTIONS=new Set([...VIEW_ACTIONS,GROUP_ACTION.CYCLE_PARTICIPATION_MANAGE,GROUP_ACTION.GROUP_MANAGE,GROUP_ACTION.MEMBER_MANAGE,GROUP_ACTION.OFFICER_MANAGE,GROUP_ACTION.CONSTITUTION_MANAGE,GROUP_ACTION.CYCLE_MANAGE,GROUP_ACTION.CYCLE_CLOSE,GROUP_ACTION.MEETING_OPERATE,GROUP_ACTION.ATTENDANCE_OPERATE,GROUP_ACTION.FINANCIAL_OPERATE,GROUP_ACTION.FINANCIAL_REVERSE,GROUP_ACTION.LOAN_REQUEST,GROUP_ACTION.LOAN_DISBURSE,GROUP_ACTION.LOAN_OPERATE,GROUP_ACTION.LOAN_REPAY,GROUP_ACTION.RECONCILIATION_OPERATE,...SHAREOUT_ACTIONS,GROUP_ACTION.DIGITAL_ACCESS_MANAGE]);
 
+const PRIVILEGED_LOAN_ROLES=new Set(['SUPER_ADMIN','PROJECT_ADMIN','STATE_COORDINATOR','FACILITATOR']);
+
+export function isCurrentLoanChairperson(ctx){
+  return Boolean(
+    ctx.operation_mode&&ctx.cycle_status==='ACTIVE'&&
+    ctx.linked_member_id&&ctx.member_status==='ACTIVE'&&
+    ctx.active_cycle_id&&ctx.cycle_membership_id&&
+    ctx.officer_position==='CHAIRPERSON'&&ctx.isChairperson
+  );
+}
+
+function isCurrentLoanRecordKeeper(ctx){
+  return Boolean(
+    ctx.cycle_status==='ACTIVE'&&
+    ctx.linked_member_id&&ctx.member_status==='ACTIVE'&&
+    ctx.active_cycle_id&&ctx.cycle_membership_id&&
+    ctx.officer_position==='RECORD_KEEPER'&&ctx.isRecordKeeper
+  );
+}
+
+function isAssignedProgramFacilitator(user,ctx){
+  return Boolean(ctx.operation_mode==='PROGRAM_ASSISTED'&&user.roles?.includes('FACILITATOR')&&ctx.is_assigned_facilitator&&ctx.is_active_facilitator&&ctx.has_facilitator_scope);
+}
+
+export function isLoanSameActorSodExempt(user,ctx){
+  if(isCurrentLoanChairperson(ctx))return true;
+  if(ctx.operation_mode==='MEMBER_MANAGED')return Boolean(user.roles?.includes('SUPER_ADMIN'));
+  if(ctx.operation_mode!=='PROGRAM_ASSISTED')return false;
+  return Boolean(user.roles?.includes('SUPER_ADMIN')||isAssignedProgramFacilitator(user,ctx));
+}
+
+export function isLoanSelfRequester(user,ctx){
+  return Boolean(
+    ['PROGRAM_ASSISTED','MEMBER_MANAGED'].includes(ctx.operation_mode)&&
+    ctx.group_status==='ACTIVE'&&
+    ctx.cycle_status==='ACTIVE'&&
+    user.roles?.includes('VSLA_MEMBER')&&
+    !(user.roles||[]).some(role=>PRIVILEGED_LOAN_ROLES.has(role))&&
+    !ctx.officer_position&&
+    ctx.linked_member_id&&ctx.member_status==='ACTIVE'&&
+    ctx.active_cycle_id&&ctx.cycle_membership_id
+  );
+}
+
+function canLoanAction(user,ctx,action){
+  const chairperson=isCurrentLoanChairperson(ctx);
+  if(ctx.operation_mode==='PROGRAM_ASSISTED'){
+    const superAdmin=user.roles?.includes('SUPER_ADMIN');
+    const facilitator=isAssignedProgramFacilitator(user,ctx);
+    if(action===GROUP_ACTION.LOAN_REQUEST)return superAdmin||facilitator||chairperson||isLoanSelfRequester(user,ctx);
+    if(action===GROUP_ACTION.LOAN_DECIDE)return superAdmin||facilitator||chairperson;
+    if(action===GROUP_ACTION.LOAN_DISBURSE)return superAdmin||facilitator||chairperson;
+  }
+  if(ctx.operation_mode==='MEMBER_MANAGED'){
+    const superAdmin=user.roles?.includes('SUPER_ADMIN');
+    const recordKeeper=isCurrentLoanRecordKeeper(ctx);
+    if(action===GROUP_ACTION.LOAN_REQUEST)return superAdmin||chairperson||recordKeeper||isLoanSelfRequester(user,ctx);
+    if(action===GROUP_ACTION.LOAN_DISBURSE)return superAdmin||chairperson||recordKeeper;
+    if(action===GROUP_ACTION.LOAN_DECIDE)return superAdmin||chairperson;
+  }
+  return false;
+}
+
 export function canGroupAction(user,ctx,action){
   if(action===GROUP_ACTION.MEETING_CLOSE){
     if(ctx.operation_mode!=='PROGRAM_ASSISTED')return canGroupAction(user,ctx,GROUP_ACTION.MEETING_OPERATE);
@@ -37,11 +100,7 @@ export function canGroupAction(user,ctx,action){
     if(ctx.isChairperson&&ctx.cycle_status==='CLOSING'&&action===GROUP_ACTION.CYCLE_CLOSE)return true;
     if(ctx.isRecordKeeper&&ctx.cycle_status==='CLOSING'&&action===GROUP_ACTION.SHAREOUT_PAYOUT)return true;
   }
-  if(action===GROUP_ACTION.LOAN_DECIDE)return Boolean(repo.isCurrentDigitalOfficer(ctx)&&ctx.isChairperson);
-  if(action===GROUP_ACTION.LOAN_REQUEST||action===GROUP_ACTION.LOAN_DISBURSE){
-    if(ctx.operation_mode==='MEMBER_MANAGED')return Boolean(repo.isCurrentDigitalOfficer(ctx)&&ctx.isRecordKeeper);
-    if(ctx.operation_mode!=='PROGRAM_ASSISTED')return false;
-  }
+  if([GROUP_ACTION.LOAN_REQUEST,GROUP_ACTION.LOAN_DECIDE,GROUP_ACTION.LOAN_DISBURSE].includes(action))return canLoanAction(user,ctx,action);
   if(ctx.has_program_scope||user.roles?.includes('SUPER_ADMIN'))return true;
   const facilitator=Boolean(user.roles?.includes('FACILITATOR')&&ctx.is_assigned_facilitator&&ctx.is_active_facilitator&&ctx.has_facilitator_scope);
   if(facilitator)return ctx.operation_mode==='PROGRAM_ASSISTED'

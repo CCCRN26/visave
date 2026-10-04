@@ -2,7 +2,7 @@ import { z } from "zod";
 const moneyPattern = /^\d+(\.\d{1,2})?$/;
 const money = z.string().regex(moneyPattern).refine((value) => !moneyPattern.test(value) || BigInt(value.replace(".", "").padEnd(value.includes(".") ? value.length + (2 - value.split(".")[1].length) : value.length + 2, "0")) > 0n, "Amount must be positive");
 const key = z.string().trim().min(8).max(160);
-export const loanRequestSchema = z.object({ memberId:z.string().uuid(), requestedPrincipal:money, requestedTermMonths:z.number().int().positive(), purpose:z.string().trim().min(3).max(2000) }).strict();
+export const loanRequestSchema = z.object({ memberId:z.string().uuid().optional(), requestedPrincipal:money, requestedTermMonths:z.number().int().positive(), purpose:z.string().trim().min(3).max(2000) }).strict();
 export const approveLoanSchema = z.object({ approvedPrincipal:money, approvedTermMonths:z.number().int().positive(), notes:z.string().trim().max(2000).nullable().optional() }).strict();
 export const rejectLoanSchema = z.object({ notes:z.string().trim().min(3).max(2000) }).strict();
 export const cancelLoanRequestSchema = z.object({ reason:z.string().trim().min(3).max(2000) }).strict();

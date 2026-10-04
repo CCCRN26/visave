@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { loanRequestSchema, approveLoanSchema } from "../src/modules/loans/loan.schemas.js";
 const uuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const service = fs.readFileSync("src/modules/loans/loan.service.js", "utf8");
+const authorization = fs.readFileSync("src/modules/loans/loan.authorization.js", "utf8");
 const migration = fs.readFileSync("database/migrations/037_loan_lifecycle_hardening.sql", "utf8");
 test("new loan requests require a meaningful purpose", () => {
   const base = { memberId: uuid, requestedPrincipal: "10000", requestedTermMonths: 2 };
@@ -18,7 +19,7 @@ test("migration protects unresolved requests and cross-entity contexts", () => {
   for (const constraint of ["loan_decisions_request_context_fk", "loans_request_context_fk", "loans_decision_context_fk", "loan_repayments_loan_context_fk"]) assert.match(migration, new RegExp(constraint));
 });
 test("service enforces attendance, cycles, duties, complete terms, and newest-first reversal", () => {
-  for (const token of ["BORROWER_NOT_PRESENT", "LOAN_CONTEXT_MISMATCH", "LOAN_SEPARATION_OF_DUTIES_VIOLATION", "LOAN_TERMS_INCOMPLETE", "LOAN_REPAYMENT_REVERSAL_ORDER_INVALID", "LOAN_REQUEST_ALREADY_OPEN"]) assert.match(service, new RegExp(token));
+  for (const token of ["BORROWER_NOT_PRESENT", "LOAN_CONTEXT_MISMATCH", "LOAN_SEPARATION_OF_DUTIES_VIOLATION", "LOAN_TERMS_INCOMPLETE", "LOAN_REPAYMENT_REVERSAL_ORDER_INVALID", "LOAN_REQUEST_ALREADY_OPEN"]) assert.match(`${service}\n${authorization}`, new RegExp(token));
   assert.match(service, /attendance_status !== "PRESENT"/);
   assert.match(service, /later\.created_at,later\.id/);
 });
