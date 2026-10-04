@@ -94,6 +94,7 @@ function closeHarness(meetingMode, googleMeetSpaceName) {
       if (sql.includes("account_code='SAVINGS_LOAN_CASH'")) return { rows: [{ savings_loan: "100.00", social_fund: "20.00" }] };
       if (sql.includes("UPDATE vsla_meetings SET status='CLOSED'")) return { rows: [{ ...meeting, status: "CLOSED" }] };
       if (sql.includes("INSERT INTO audit_logs")) return { rows: [] };
+      if (sql.includes("WITH meeting_totals AS")) return { rows: [] };
       throw new Error(`Unexpected SQL: ${sql}`);
     },
   };
@@ -111,6 +112,7 @@ test("automatic Virtual and Hybrid close commit before ending the active confere
     const harness = closeHarness(mode, "spaces/space-123");
     const result = await closeMeeting("group-1", "meeting-1", { id: "user-1", organization_id: "org-1" }, {
       transaction: harness.transaction,
+      smsOptions: { env: { TWILIO_SMS_ENABLED: "false" }, log: () => {} },
       endConference: async () => harness.events.push("END_CONFERENCE"),
     });
     assert.deepEqual(harness.events, ["BEGIN", "COMMIT", "END_CONFERENCE"]);
@@ -125,6 +127,7 @@ test("Physical and manually linked meetings make no Google end request", async (
     let calls = 0;
     const result = await closeMeeting("group-1", "meeting-1", { id: "user-1", organization_id: "org-1" }, {
       transaction: harness.transaction,
+      smsOptions: { env: { TWILIO_SMS_ENABLED: "false" }, log: () => {} },
       endConference: async () => { calls += 1; },
     });
     assert.equal(calls, 0);
@@ -136,6 +139,7 @@ test("Google end failure cannot roll back a successfully closed Visave meeting",
   const harness = closeHarness("VIRTUAL", "spaces/space-123");
   const result = await closeMeeting("group-1", "meeting-1", { id: "user-1", organization_id: "org-1" }, {
     transaction: harness.transaction,
+    smsOptions: { env: { TWILIO_SMS_ENABLED: "false" }, log: () => {} },
     endConference: async () => { harness.events.push("END_FAILED"); throw new Error("provider unavailable"); },
   });
   assert.deepEqual(harness.events, ["BEGIN", "COMMIT", "END_FAILED"]);

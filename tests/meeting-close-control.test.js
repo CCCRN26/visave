@@ -51,6 +51,7 @@ function closeHarness(actor, { status = "OPEN", unmarked = 0, reconciliation = t
     if (sql.includes("account_code='SAVINGS_LOAN_CASH'")) return { rows: [{ savings_loan: "100.00", social_fund: "20.00" }] };
     if (sql.includes("UPDATE vsla_meetings SET status='CLOSED'")) { updates += 1; return { rows: [{ ...meeting, status: "CLOSED" }] }; }
     if (sql.includes("INSERT INTO audit_logs")) return { rows: [] };
+    if (sql.includes("WITH meeting_totals AS")) return { rows: [] };
     throw new Error(`Unexpected SQL: ${sql}`);
   } };
   return { client, get updates() { return updates; } };
@@ -104,7 +105,10 @@ test("each allowed Program Assisted actor closes an otherwise valid meeting thro
   ];
   for (const [actorUser, actor] of cases) {
     const harness = closeHarness(actor);
-    const result = await closeMeeting("group-1", "meeting-1", actorUser, { transaction: (work) => work(harness.client) });
+    const result = await closeMeeting("group-1", "meeting-1", actorUser, {
+      transaction: (work) => work(harness.client),
+      smsOptions: { env: { TWILIO_SMS_ENABLED: "false" }, log: () => {} },
+    });
     assert.equal(result.status, "CLOSED");
     assert.equal(harness.updates, 1);
   }
