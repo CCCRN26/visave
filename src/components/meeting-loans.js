@@ -5,7 +5,7 @@ import { formatCurrency } from "@/lib/utils/money";
 
 const number = (value) => Number(value || 0);
 
-export default function MeetingLoans({ groupId, meetingId, meetingDate, availableFund, attendance, data, open, canRequest = false, canDecide = false, canDisburse = false, canRepay = false }) {
+export default function MeetingLoans({ groupId, meetingId, meetingDate, availableFund, attendance, data, open, canRequest = false, canDecide = false, canDisburse = false, canRepay = false, actorUserId, sameActorSodExempt = false }) {
   const [memberId, setMemberId] = useState(attendance.find((x) => x.attendance_status === "PRESENT")?.member_id || "");
   const [amount, setAmount] = useState("");
   const [term, setTerm] = useState(1);
@@ -72,7 +72,7 @@ export default function MeetingLoans({ groupId, meetingId, meetingDate, availabl
       <button disabled={busy || selectedAttendance !== "PRESENT" || purpose.trim().length < 3 || !amount} onClick={() => call("/loan-requests", { memberId, requestedPrincipal: amount, requestedTermMonths: term, purpose: purpose.trim() })}>Record request</button>
       {selectedAttendance && selectedAttendance !== "PRESENT" && <p className="muted">This member cannot borrow because they are not marked PRESENT.</p>}
     </div>}
-    <div className="table-wrap"><table><thead><tr><th>Member / purpose</th><th>Requested</th><th>Status</th><th>Recorder</th><th>Actions</th></tr></thead><tbody>{data.requests.map((request) => <RequestRow key={request.id} groupId={groupId} meetingId={meetingId} request={request} open={open} busy={busy} canDecide={canDecide} canDisburse={canDisburse} availableFund={availableFund} call={call}/>)}</tbody></table></div>
+    <div className="table-wrap"><table><thead><tr><th>Member / purpose</th><th>Requested</th><th>Status</th><th>Recorder</th><th>Actions</th></tr></thead><tbody>{data.requests.map((request) => <RequestRow key={request.id} groupId={groupId} meetingId={meetingId} request={request} open={open} busy={busy} canDecide={canDecide} canDisburse={canDisburse} availableFund={availableFund} call={call} actorUserId={actorUserId} sameActorSodExempt={sameActorSodExempt}/>)}</tbody></table></div>
     <h3>Outstanding loans</h3>
     <div className="table-wrap"><table><thead><tr><th>Member</th><th>Outstanding</th><th>Status</th><th>Repay</th></tr></thead><tbody>{data.loans.filter((x) => !["REPAID", "VOIDED"].includes(x.display_status)).map((loan) => <LoanRepay key={loan.id} loan={loan} open={open && canRepay} busy={busy} call={call}/>)}</tbody></table></div>
   </section>;
@@ -80,23 +80,25 @@ export default function MeetingLoans({ groupId, meetingId, meetingDate, availabl
 
 function Info({ label, value }) { return <div><small className="muted">{label}</small><br/><strong>{value}</strong></div>; }
 
-function RequestRow({ groupId, meetingId, request, open, busy, canDecide, canDisburse, availableFund, call }) {
+function RequestRow({ groupId, meetingId, request, open, busy, canDecide, canDisburse, availableFund, call, actorUserId, sameActorSodExempt }) {
   const [approvedPrincipal, setApprovedPrincipal] = useState(request.requested_principal);
   const [approvedTermMonths, setApprovedTermMonths] = useState(request.requested_term_months);
   const [notes, setNotes] = useState("");
   const [currentEligibility, setCurrentEligibility] = useState(null);
   useEffect(() => {
-    if (!open || !canDecide || request.status !== "PENDING") return;
+    if (!open || !canDecide || (!sameActorSodExempt && request.requested_by === actorUserId) || request.status !== "PENDING") return;
     const controller = new AbortController();
     fetch(`/api/v1/groups/${groupId}/meetings/${meetingId}/loan-eligibility/${request.member_id}`, { signal: controller.signal })
       .then((response) => response.json())
       .then((body) => setCurrentEligibility(body.data || null))
       .catch((error) => { if (error.name !== "AbortError") setCurrentEligibility(null); });
     return () => controller.abort();
-  }, [groupId, meetingId, request.member_id, request.status, open, canDecide]);
+  }, [groupId, meetingId, request.member_id, request.requested_by, request.status, open, canDecide, actorUserId, sameActorSodExempt]);
   const charge = number(approvedPrincipal) * (number(request.loan_service_charge_rate) / 100) * number(approvedTermMonths);
+  const canDecideRequest = canDecide && (sameActorSodExempt || request.requested_by !== actorUserId);
+  const canDisburseRequest = canDisburse && (sameActorSodExempt || request.decided_by !== actorUserId);
   return <tr><td><b>{request.member_name}</b><br/><small>{request.purpose || "Legacy request — no purpose recorded"}</small></td><td>{formatCurrency(request.requested_principal)}<br/><small>{request.requested_term_months} months</small></td><td>{request.status}</td><td>{request.requested_by_name}</td><td>
-    {open && canDecide && request.status === "PENDING" && <div className="grid" style={{ minWidth: 260 }}>
+    {open && canDecideRequest && request.status === "PENDING" && <div className="grid" style={{ minWidth: 260 }}>
       <small>Current maximum eligible: {formatCurrency(currentEligibility?.maximum_eligible || request.maximum_eligible_snapshot)}</small>
       <input aria-label="Approved amount" value={approvedPrincipal} onChange={(event) => setApprovedPrincipal(event.target.value)}/>
       <input aria-label="Approved term" type="number" min="1" max={request.loan_max_term_months} value={approvedTermMonths} onChange={(event) => setApprovedTermMonths(Number(event.target.value))}/>
@@ -106,7 +108,7 @@ function RequestRow({ groupId, meetingId, request, open, busy, canDecide, canDis
       <span><button disabled={busy} onClick={() => call(`/loan-requests/${request.id}/approve`, { approvedPrincipal, approvedTermMonths, notes: notes.trim() || null })}>Approve</button> <button disabled={busy || notes.trim().length < 3} onClick={() => call(`/loan-requests/${request.id}/reject`, { notes: notes.trim() })}>Reject</button></span>
       <small>Approval does not reserve funds. Available funds are rechecked at disbursement.</small>
     </div>}
-    {open && canDisburse && request.status === "APPROVED" && <button disabled={busy} onClick={() => call(`/loan-requests/${request.id}/disburse`, { idempotencyKey: crypto.randomUUID() })}>Disburse {formatCurrency(request.approved_principal)}</button>}
+    {open && canDisburseRequest && request.status === "APPROVED" && <button disabled={busy} onClick={() => call(`/loan-requests/${request.id}/disburse`, { idempotencyKey: crypto.randomUUID() })}>Disburse {formatCurrency(request.approved_principal)}</button>}
   </td></tr>;
 }
 

@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/auth/session";
-import { requireGroupRouteAction, canGroupAction, GROUP_ACTION } from "@/modules/group-access/group-access.service";
+import { requireGroupRouteAction, canGroupAction, GROUP_ACTION, isLoanSameActorSodExempt } from "@/modules/group-access/group-access.service";
 import { getMeeting } from "@/modules/meetings/meeting.service";
 import { isGoogleMeetUrl } from "@/modules/meetings/meeting-url";
 import { getGoogleConnectionStatus } from "@/modules/google-integration/google-connection.service";
@@ -88,7 +88,7 @@ export default async function Meeting({ params, searchParams }) {
     {canReport && <p><Link href={`/groups/${id}/reports/cycles/${data.meeting.cycle_id}/meetings/${meetingId}`}>View Meeting Report</Link></p>}
     {data.meeting.is_latest_valid && <div className="closeout-entry"><div><strong>Is this the final meeting of the cycle?</strong><span>Use the guided workspace to complete Share-out and prepare the next cycle.</span></div><Link className="button" href={`/groups/${id}/cycles/${data.meeting.cycle_id}/closeout`}>Start Cycle Close-out</Link></div>}
     <MeetingMode groupId={id} initial={data} capabilities={capabilities}>
-      <MeetingLoans groupId={id} meetingId={meetingId} meetingDate={data.meeting.meeting_date} availableFund={data.summary.currentSavingsLoan} attendance={data.attendance} data={loans} open={data.meeting.status === "OPEN"} canRequest={capabilities.loanRequest} canDecide={capabilities.loanDecide} canDisburse={capabilities.loanDisburse} canRepay={capabilities.repay}/>
+      <MeetingLoans groupId={id} meetingId={meetingId} meetingDate={data.meeting.meeting_date} availableFund={data.summary.currentSavingsLoan} attendance={data.attendance} data={loans} open={data.meeting.status === "OPEN"} canRequest={capabilities.loanRequest} canDecide={capabilities.loanDecide} canDisburse={capabilities.loanDisburse} canRepay={capabilities.repay} actorUserId={user.id} sameActorSodExempt={isLoanSameActorSodExempt(user, actor)}/>
     </MeetingMode>
   </>;
 }
