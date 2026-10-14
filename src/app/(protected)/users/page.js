@@ -2,6 +2,9 @@ import { requireAuth } from "@/lib/auth/session";
 import { query } from "@/lib/db/query";
 import { formatDateTime } from "@/lib/utils/date";
 import DataTable from "@/components/data-table";
+import AssistedPasswordReset from "@/components/assisted-password-reset";
+import { canAssistedPasswordReset } from "@/modules/auth/assisted-password-reset.service";
+import { pool } from "@/lib/db/pool";
 
 export default async function Users() {
   const user = await requireAuth();
@@ -27,6 +30,7 @@ export default async function Users() {
      LIMIT 20`,
     [user.organization_id],
   );
+  const resettable = new Set((await Promise.all(rows.map(async (row) => [row.id, await canAssistedPasswordReset(pool, user, row.id)]))).filter(([, allowed]) => allowed).map(([id]) => id));
   const columns = [
     { key: "display_name", label: "Name" },
     { key: "email", label: "Email" },
@@ -36,6 +40,9 @@ export default async function Users() {
     { key: "state_names", label: "State" },
     { key: "status", label: "Status" },
     { key: "last_login_at", label: "Last Login", render: (row) => formatDateTime(row.last_login_at) },
+    { key: "actions", label: "Actions", render: (row) => resettable.has(row.id)
+      ? <AssistedPasswordReset targetUserId={row.id} displayName={row.display_name} login={row.email} />
+      : null },
   ];
   return <><h1>Users</h1><p className="muted">Accounts, roles, projects, and location scope.</p><DataTable rows={rows} columns={columns} /></>;
 }
