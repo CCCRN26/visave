@@ -9,6 +9,7 @@ import GroupNav from "@/components/group-nav";
 import MemberDigitalAccess from "@/components/member-digital-access";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/money";
+import { canAssistedPasswordReset } from "@/modules/auth/assisted-password-reset.service";
 
 export default async function Member({ params }) {
   const { id, memberId } = await params;
@@ -26,9 +27,10 @@ export default async function Member({ params }) {
     ["Officer Position", officerLabel],
     ["Digital Access", member.linked_user_id ? "Enabled" : "Not enabled"],
   ];
-  const [summary, cycleHistory] = await Promise.all([
+  const [summary, cycleHistory, canResetPassword] = await Promise.all([
     memberCurrentCycleSummary(pool, id, memberId),
     memberCycleHistory(pool, id, memberId),
+    member.linked_user_id ? canAssistedPasswordReset(pool, user, member.linked_user_id) : false,
   ]);
   const history = await query(
     `SELECT t.*,COALESCE(s.amount,sf.amount,f.amount) amount
@@ -59,6 +61,7 @@ export default async function Member({ params }) {
         member={member}
         officerLabel={officerLabel}
         canManage={user.permissions.includes("member_access.manage") && canGroupAction(user, actor, GROUP_ACTION.DIGITAL_ACCESS_MANAGE)}
+        canResetPassword={canResetPassword}
       />
       <div className="grid cards" style={{ marginTop: 20 }}>
         {[

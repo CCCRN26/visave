@@ -82,6 +82,10 @@ th{background:var(--surface-muted);color:var(--muted);font-size:.72rem;letter-sp
 .digital-access-dialog::backdrop{background:rgb(0 0 0/.55)}
 .digital-access-form{display:grid;gap:1rem;padding:1.25rem}
 .digital-access-form label{display:grid;gap:.4rem;font-size:.86rem;font-weight:700}
+.confirmation-check{grid-template-columns:auto 1fr!important;align-items:start;font-weight:500!important;line-height:1.45}
+.confirmation-check input{margin-top:.2rem}
+.temporary-password-result{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem;border:1px solid var(--border);border-radius:12px;background:var(--background)}
+.temporary-password-result code{font-size:1.05rem;font-weight:700;letter-spacing:.04em;overflow-wrap:anywhere}
 .password-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem}
 .password-field button{min-width:68px}
 .form-help{margin:0;color:var(--muted);font-size:.82rem;line-height:1.45}

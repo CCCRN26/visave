@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { phoneInputProps, sanitizePhoneInput } from "@/lib/validation/phone";
+import AssistedPasswordReset from "@/components/assisted-password-reset";
 
 const ERROR_MESSAGES = {
   USER_EMAIL_ALREADY_EXISTS: "An account with this email already exists.",
@@ -13,7 +14,7 @@ const ERROR_MESSAGES = {
   FORBIDDEN: "You are not authorized to manage digital access for this group.",
 };
 
-export default function MemberDigitalAccess({ groupId, member, officerLabel, canManage }) {
+export default function MemberDigitalAccess({ groupId, member, officerLabel, canManage, canResetPassword }) {
   const router = useRouter();
   const dialogRef = useRef(null);
   const [dialog, setDialog] = useState(null);
@@ -128,6 +129,13 @@ export default function MemberDigitalAccess({ groupId, member, officerLabel, can
       )}
       {canManage && member.linked_user_id && (
         <button type="button" className="danger-button" onClick={() => setDialog("disable")}>Disable Digital Access</button>
+      )}
+      {canResetPassword && member.linked_user_id && (
+        <AssistedPasswordReset
+          targetUserId={member.linked_user_id}
+          displayName={`${member.first_name} ${member.middle_name || ""} ${member.last_name}`.replace(/\s+/g, " ").trim()}
+          login={member.linked_user_email}
+        />
       )}
 
       <dialog ref={dialogRef} className="digital-access-dialog" onCancel={closeDialog}>

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { withTransaction } from "@/lib/db/transaction";
 import { AppError, AuthenticationError, ValidationError } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit/audit.service";
+import { BCRYPT_COST } from "./password-policy.js";
 
 export async function changeForcedPasswordWithClient(client, user, newPassword, passwordTools = bcrypt) {
   const current = (await client.query(
@@ -16,7 +17,7 @@ export async function changeForcedPasswordWithClient(client, user, newPassword, 
     throw new ValidationError("Choose a new password that is different from your temporary password.");
   }
 
-  const passwordHash = await passwordTools.hash(newPassword, 12);
+  const passwordHash = await passwordTools.hash(newPassword, BCRYPT_COST);
   const updated = (await client.query(
     "UPDATE users SET password_hash=$2,must_change_password=false,updated_at=now() WHERE id=$1 AND must_change_password=true RETURNING id",
     [user.id, passwordHash],
