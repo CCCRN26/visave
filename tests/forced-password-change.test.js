@@ -29,9 +29,9 @@ test("all administrator-supplied new-login paths opt in, while existing-account 
 test("login carries the forced-change state without treating a valid password as invalid", () => {
   const repository = read("src/modules/auth/auth.repository.js");
   const service = read("src/modules/auth/auth.service.js");
-  const page = read("src/app/login/page.js");
+  const page = read("src/components/login-form.js");
   assert.match(repository, /status,must_change_password FROM users/);
-  assert.match(service, /bcrypt\.compare\(password,user\.password_hash\)/);
+  assert.match(service, /passwordTools\.compare\(password, user\.password_hash\)/);
   assert.doesNotMatch(service, /must_change_password[^\n]+INVALID_CREDENTIALS/);
   assert.match(page, /json\.data\?\.user\?\.must_change_password/);
   assert.match(page, /router\.replace\("\/change-password"\)/);

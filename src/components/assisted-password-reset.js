@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import TurnstileWidget from "@/components/turnstile-widget";
 
 const ERROR_MESSAGES = {
   SELF_ASSISTED_RESET_NOT_ALLOWED: "Use the normal change-password screen to change your own password.",
@@ -8,13 +9,15 @@ const ERROR_MESSAGES = {
   FORBIDDEN: "You are not authorized to reset this account.",
 };
 
-export default function AssistedPasswordReset({ targetUserId, displayName, login }) {
+export default function AssistedPasswordReset({ targetUserId, displayName, login, turnstile }) {
   const dialogRef = useRef(null);
+  const widgetRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -28,10 +31,12 @@ export default function AssistedPasswordReset({ targetUserId, displayName, login
     setError("");
     setTemporaryPassword("");
     setCopied(false);
+    setTurnstileToken("");
   }
 
   async function submit(event) {
     event.preventDefault();
+    if (turnstile.enabled && !turnstileToken) return;
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
@@ -39,17 +44,21 @@ export default function AssistedPasswordReset({ targetUserId, displayName, login
       const response = await fetch(`/api/v1/users/${targetUserId}/assisted-password-reset`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reason: form.get("reason"), confirmed: form.get("confirmed") === "on" }),
+        body: JSON.stringify({ reason: form.get("reason"), confirmed: form.get("confirmed") === "on", turnstileToken }),
       });
       const json = response.headers.get("content-type")?.includes("application/json")
         ? await response.json().catch(() => null)
         : null;
       if (!response.ok) {
+        setTurnstileToken("");
+        widgetRef.current?.reset();
         setError(ERROR_MESSAGES[json?.error?.code] || json?.error?.message || "Unable to reset the password. Please try again.");
         return;
       }
       setTemporaryPassword(json.data.temporaryPassword);
     } catch {
+      setTurnstileToken("");
+      widgetRef.current?.reset();
       setError("Unable to reset the password. Please try again.");
     } finally {
       setBusy(false);
@@ -102,10 +111,11 @@ export default function AssistedPasswordReset({ targetUserId, displayName, login
               <input name="confirmed" type="checkbox" required disabled={busy} />
               I confirm that I am authorized to reset this user&apos;s password and will share it through a trusted channel.
             </label>
+            {open && <TurnstileWidget ref={widgetRef} {...turnstile} action="assisted_password_reset" onTokenChange={setTurnstileToken} />}
             {error && <p className="form-error" role="alert">{error}</p>}
             <div className="dialog-actions">
               <button type="button" className="secondary-button" disabled={busy} onClick={closeDialog}>Cancel</button>
-              <button type="submit" className="danger-button" disabled={busy}>{busy ? "Resetting…" : "Confirm Reset Password"}</button>
+              <button type="submit" className="danger-button" disabled={busy || (turnstile.enabled && !turnstileToken)}>{busy ? "Resetting…" : "Confirm Reset Password"}</button>
             </div>
           </form>
         )}

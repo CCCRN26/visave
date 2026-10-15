@@ -10,10 +10,12 @@ import MemberDigitalAccess from "@/components/member-digital-access";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/money";
 import { canAssistedPasswordReset } from "@/modules/auth/assisted-password-reset.service";
+import { getTurnstileClientConfig } from "@/lib/security/turnstile";
 
 export default async function Member({ params }) {
   const { id, memberId } = await params;
   const user = await requireAuth();
+  const turnstile = getTurnstileClientConfig();
   const actor = await requireGroupRouteAction(user, id, "member.view", GROUP_ACTION.MEMBER_VIEW);
   const member = await getMember(id, memberId);
   const officerLabel = POSITION_LABELS[member.position_code];
@@ -62,6 +64,7 @@ export default async function Member({ params }) {
         officerLabel={officerLabel}
         canManage={user.permissions.includes("member_access.manage") && canGroupAction(user, actor, GROUP_ACTION.DIGITAL_ACCESS_MANAGE)}
         canResetPassword={canResetPassword}
+        turnstile={turnstile}
       />
       <div className="grid cards" style={{ marginTop: 20 }}>
         {[
