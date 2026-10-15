@@ -8,6 +8,7 @@ import { revokeUserSessions } from "./auth.repository.js";
 import { BCRYPT_COST, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./password-policy.js";
 import { assertUserInManagementScope, highestManagementRole } from "@/modules/users/user-access.service";
 import { assertGroupAction, GROUP_ACTION } from "@/modules/group-access/group-access.service";
+import { TURNSTILE_ACTIONS, verifyTurnstileToken } from "@/lib/security/turnstile";
 
 const TEMPORARY_PASSWORD_LENGTH = 20;
 const CHARACTER_GROUPS = [
@@ -135,6 +136,13 @@ export function runAssistedPasswordReset(dbPool, actor, targetUserId, reason, de
 
 export function assistedPasswordReset(actor, targetUserId, reason) {
   return runAssistedPasswordReset(pool, actor, targetUserId, reason);
+}
+
+export async function assistedPasswordResetWithTurnstile(actor, targetUserId, data, dependencies = {}) {
+  const verifyChallenge = dependencies.verifyTurnstile || verifyTurnstileToken;
+  const reset = dependencies.reset || assistedPasswordReset;
+  await verifyChallenge({ token: data.turnstileToken, expectedAction: TURNSTILE_ACTIONS.ASSISTED_PASSWORD_RESET });
+  return reset(actor, targetUserId, data.reason);
 }
 
 export async function canAssistedPasswordReset(client, actor, targetUserId) {

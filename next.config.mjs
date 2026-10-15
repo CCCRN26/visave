@@ -2,11 +2,12 @@ const isDevelopment = process.env.NODE_ENV === "development";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://cdn.botpress.cloud https://files.bpcontent.cloud${isDevelopment ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://cdn.botpress.cloud https://files.bpcontent.cloud https://challenges.cloudflare.com${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://files.bpcontent.cloud https://cdn.jsdelivr.net",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://webchat.botpress.cloud https://us.i.posthog.com https://cdn.jsdelivr.net",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

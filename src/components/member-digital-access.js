@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
   FORBIDDEN: "You are not authorized to manage digital access for this group.",
 };
 
-export default function MemberDigitalAccess({ groupId, member, officerLabel, canManage, canResetPassword }) {
+export default function MemberDigitalAccess({ groupId, member, officerLabel, canManage, canResetPassword, turnstile }) {
   const router = useRouter();
   const dialogRef = useRef(null);
   const [dialog, setDialog] = useState(null);
@@ -135,6 +135,7 @@ export default function MemberDigitalAccess({ groupId, member, officerLabel, can
           targetUserId={member.linked_user_id}
           displayName={`${member.first_name} ${member.middle_name || ""} ${member.last_name}`.replace(/\s+/g, " ").trim()}
           login={member.linked_user_email}
+          turnstile={turnstile}
         />
       )}
 

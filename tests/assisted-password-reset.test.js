@@ -26,7 +26,7 @@ const allowedManagerDependencies = { assertManagementScope: async () => {} };
 test("route authenticates before invoking assisted reset and has no generic permission bypass", () => {
   const route = read("src/app/api/v1/users/[id]/assisted-password-reset/route.js");
   assert.match(route, /await requireAuth\(\)/);
-  assert.match(route, /assistedPasswordReset\(actor, id, data\.reason\)/);
+  assert.match(route, /assistedPasswordResetWithTurnstile\(actor, id, data\)/);
   assert.doesNotMatch(route, /isAdmin|user\.manage|requirePermission/);
 });
 

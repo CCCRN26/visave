@@ -86,6 +86,9 @@ th{background:var(--surface-muted);color:var(--muted);font-size:.72rem;letter-sp
 .confirmation-check input{margin-top:.2rem}
 .temporary-password-result{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem;border:1px solid var(--border);border-radius:12px;background:var(--background)}
 .temporary-password-result code{font-size:1.05rem;font-weight:700;letter-spacing:.04em;overflow-wrap:anywhere}
+.turnstile-field{display:grid;gap:.35rem;min-width:0}
+.turnstile-widget{width:100%;min-width:0}
+.turnstile-field p{margin:0}
 .password-field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem}
 .password-field button{min-width:68px}
 .form-help{margin:0;color:var(--muted);font-size:.82rem;line-height:1.45}

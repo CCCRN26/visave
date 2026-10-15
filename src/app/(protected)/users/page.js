@@ -5,9 +5,11 @@ import DataTable from "@/components/data-table";
 import AssistedPasswordReset from "@/components/assisted-password-reset";
 import { canAssistedPasswordReset } from "@/modules/auth/assisted-password-reset.service";
 import { pool } from "@/lib/db/pool";
+import { getTurnstileClientConfig } from "@/lib/security/turnstile";
 
 export default async function Users() {
   const user = await requireAuth();
+  const turnstile = getTurnstileClientConfig();
   const rows = await query(
     `SELECT
        u.id,
@@ -41,7 +43,7 @@ export default async function Users() {
     { key: "status", label: "Status" },
     { key: "last_login_at", label: "Last Login", render: (row) => formatDateTime(row.last_login_at) },
     { key: "actions", label: "Actions", render: (row) => resettable.has(row.id)
-      ? <AssistedPasswordReset targetUserId={row.id} displayName={row.display_name} login={row.email} />
+      ? <AssistedPasswordReset targetUserId={row.id} displayName={row.display_name} login={row.email} turnstile={turnstile} />
       : null },
   ];
   return <><h1>Users</h1><p className="muted">Accounts, roles, projects, and location scope.</p><DataTable rows={rows} columns={columns} /></>;

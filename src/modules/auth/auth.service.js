@@ -1,2 +1,47 @@
-import bcrypt from "bcryptjs"; import {withTransaction} from "@/lib/db/transaction"; import {AuthenticationError} from "@/lib/errors"; import {newSessionToken,hashToken} from "@/lib/auth/token"; import {writeAudit} from "@/lib/audit/audit.service"; import {findByEmail,createSession} from "./auth.repository";
-export async function login({email,password,ip,userAgent}){const result=await withTransaction(async client=>{const user=await findByEmail(client,email);if(!user||user.status!=="ACTIVE"||!await bcrypt.compare(password,user.password_hash)){await writeAudit(client,{organizationId:user?.organization_id||null,action:"USER_LOGIN_FAILED",entityType:"USER",newValues:{attemptedEmail:email,reason:"INVALID_CREDENTIALS"},ipAddress:ip,userAgent});return null;}const token=newSessionToken(),expiresAt=new Date(Date.now()+8*60*60*1000);await createSession(client,{userId:user.id,tokenHash:hashToken(token),expiresAt,ip,userAgent});await client.query("UPDATE users SET last_login_at=now() WHERE id=$1",[user.id]);await writeAudit(client,{organizationId:user.organization_id,actorUserId:user.id,action:"USER_LOGIN",entityType:"USER",entityId:user.id,ipAddress:ip,userAgent});delete user.password_hash;return{user,token,expiresAt};});if(!result)throw new AuthenticationError("Invalid email or password");return result;}
+import bcrypt from "bcryptjs";
+import { withTransaction } from "@/lib/db/transaction";
+import { AuthenticationError } from "@/lib/errors";
+import { newSessionToken, hashToken } from "@/lib/auth/token";
+import { writeAudit } from "@/lib/audit/audit.service";
+import { TURNSTILE_ACTIONS, verifyTurnstileToken } from "@/lib/security/turnstile";
+import { findByEmail, createSession } from "./auth.repository";
+
+export async function login({ email, password, turnstileToken, ip, userAgent }, dependencies = {}) {
+  const verifyChallenge = dependencies.verifyTurnstile || verifyTurnstileToken;
+  const transaction = dependencies.transaction || withTransaction;
+  const passwordTools = dependencies.passwordTools || bcrypt;
+
+  await verifyChallenge({ token: turnstileToken, expectedAction: TURNSTILE_ACTIONS.LOGIN });
+  const result = await transaction(async (client) => {
+    const user = await findByEmail(client, email);
+    if (!user || user.status !== "ACTIVE" || !await passwordTools.compare(password, user.password_hash)) {
+      await writeAudit(client, {
+        organizationId: user?.organization_id || null,
+        action:"USER_LOGIN_FAILED",
+        entityType: "USER",
+        newValues:{attemptedEmail:email,reason:"INVALID_CREDENTIALS"},
+        ipAddress: ip,
+        userAgent,
+      });
+      return null;
+    }
+
+    const token = newSessionToken();
+    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    await createSession(client, { userId: user.id, tokenHash: hashToken(token), expiresAt, ip, userAgent });
+    await client.query("UPDATE users SET last_login_at=now() WHERE id=$1", [user.id]);
+    await writeAudit(client, {
+      organizationId: user.organization_id,
+      actorUserId: user.id,
+      action: "USER_LOGIN",
+      entityType: "USER",
+      entityId: user.id,
+      ipAddress: ip,
+      userAgent,
+    });
+    delete user.password_hash;
+    return { user, token, expiresAt };
+  });
+  if (!result) throw new AuthenticationError("Invalid email or password");
+  return result;
+}
