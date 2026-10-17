@@ -1,0 +1,279 @@
+{
+  "info": {
+    "_postman_id": "ad8cd5ac-4ae6-42fc-97fc-2d9c961d32b1",
+    "name": "Visave Mobile - Member-first API",
+    "description": "Sanitized member-first requests derived from the current route handlers and schemas. This is a focused mobile runner, not the complete 130-method inventory; see 04-api-catalog.md. The supplied staging URL still requires owner confirmation. Postman should retain the host-only vsla_session cookie in its cookie jar after login. If Turnstile is enabled, login requires a fresh legitimate token for action login and an allowed hostname. This collection contains no bypass, cookie, real credential, PII, or server secret.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://testvisave.gidacare.com", "type": "string" },
+    { "key": "email", "value": "", "type": "string" },
+    { "key": "password", "value": "", "type": "string" },
+    { "key": "newPassword", "value": "", "type": "string" },
+    { "key": "turnstileToken", "value": "", "type": "string" },
+    { "key": "groupId", "value": "group-id-example", "type": "string" },
+    { "key": "cycleId", "value": "cycle-id-example", "type": "string" },
+    { "key": "meetingId", "value": "meeting-id-example", "type": "string" },
+    { "key": "memberId", "value": "member-id-example", "type": "string" },
+    { "key": "requestId", "value": "loan-request-id-example", "type": "string" },
+    { "key": "notificationId", "value": "notification-id-example", "type": "string" },
+    { "key": "stateId", "value": "state-id-example", "type": "string" },
+    { "key": "lgaId", "value": "lga-id-example", "type": "string" },
+    { "key": "idempotencyKey", "value": "replace-with-a-new-key-for-each-new-intent", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Diagnostics",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "Unauthenticated database liveness. Response is a special non-envelope {status} shape and may be 503."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"turnstileToken\": \"{{turnstileToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Turnstile cannot be bypassed. When enabled, obtain a fresh legitimate token for action login and an allowed hostname. A successful response sets the HttpOnly vsla_session cookie; Postman normally retains it in its cookie jar."
+          }
+        },
+        {
+          "name": "Current session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Returns the current user in the normal success envelope. A forced-password user receives PASSWORD_CHANGE_REQUIRED on protected routes."
+          }
+        },
+        {
+          "name": "Change forced password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/auth/change-password",
+            "description": "Requires a valid session with must_change_password=true. Password policy is 12-128 characters; the two values must match and the new value must differ from the temporary password."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Revokes the current DB session and expires the cookie. Run last."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Member self-service",
+      "item": [
+        {
+          "name": "My groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/groups",
+            "description": "Membership is derived from the signed-in user; no memberId is accepted."
+          }
+        },
+        {
+          "name": "My group activity - current cycle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/groups/{{groupId}}/activity",
+            "description": "Returns membership, server-calculated summary, current loan/share-out/request context, cycles, and up to 50 activity rows."
+          }
+        },
+        {
+          "name": "My group activity - selected cycle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/groups/{{groupId}}/activity?cycleId={{cycleId}}",
+            "description": "The requested cycle must be in the signed-in member's group history."
+          }
+        },
+        {
+          "name": "My meetings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/meetings",
+            "description": "Read-only meeting history derived through member attendance snapshots."
+          }
+        },
+        {
+          "name": "My meeting detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/groups/{{groupId}}/meetings/{{meetingId}}",
+            "description": "Returns meeting, summary, contributions and refreshedAt. joinUrl is exposed only for eligible open Virtual/Hybrid meetings."
+          }
+        },
+        {
+          "name": "Request my loan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestedPrincipal\": \"10000.00\",\n  \"requestedTermMonths\": 2,\n  \"purpose\": \"Synthetic staging purpose\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/groups/{{groupId}}/meetings/{{meetingId}}/loan-requests",
+            "description": "Ordinary member self-request: deliberately omit memberId so the server derives identity. Principal is a positive decimal string with at most two decimal places; purpose is 3-2000 characters. This request does not use idempotencyKey in the current schema."
+          }
+        },
+        {
+          "name": "Cancel my loan request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"No longer needed\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/groups/{{groupId}}/meetings/{{meetingId}}/loan-requests/{{requestId}}/cancel",
+            "description": "Reason must be 3-2000 characters. Server enforces ownership/actor and current request state."
+          }
+        },
+        {
+          "name": "Get my Google Meet email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/me/google-meet-email"
+          }
+        },
+        {
+          "name": "Update my Google Meet email",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"googleMeetEmail\": \"member.test@example.invalid\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/v1/me/google-meet-email",
+            "description": "Use a valid email of at most 254 characters or null to clear. Synthetic reserved-domain example only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List my notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notifications",
+            "description": "Latest 100 notification rows for the current recipient; no pagination contract."
+          }
+        },
+        {
+          "name": "Mark my notification read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+            "description": "The recipient constraint is enforced server-side."
+          }
+        },
+        {
+          "name": "Mark all my notifications read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/notifications/read-all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files and reports",
+      "item": [
+        {
+          "name": "Download my member statement PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/pdf" }],
+            "url": "{{baseUrl}}/api/v1/groups/{{groupId}}/cycles/{{cycleId}}/members/{{memberId}}/reports/pdf",
+            "description": "Binary authenticated response. The server rechecks member self-access; changing memberId does not grant access."
+          }
+        },
+        {
+          "name": "Download my member statement Excel",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }],
+            "url": "{{baseUrl}}/api/v1/groups/{{groupId}}/cycles/{{cycleId}}/members/{{memberId}}/reports/excel",
+            "description": "Binary authenticated XLSX response. Optional/deferred for member V1."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public discovery and locations",
+      "item": [
+        {
+          "name": "Public states",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/locations/states" }
+        },
+        {
+          "name": "Public LGAs",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/locations/lgas?stateId={{stateId}}" }
+        },
+        {
+          "name": "Public communities",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/locations/communities?lgaId={{lgaId}}" }
+        },
+        {
+          "name": "Public groups",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/groups?state_id={{stateId}}&lga_id={{lgaId}}" }
+        },
+        {
+          "name": "Public group detail",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/public/groups/{{groupId}}" }
+        },
+        {
+          "name": "Public constitution PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/pdf" }],
+            "url": "{{baseUrl}}/api/public/groups/{{groupId}}/constitution",
+            "description": "Available only when both group and current document satisfy public visibility rules."
+          }
+        }
+      ]
+    }
+  ]
+}
